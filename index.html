@@ -243,6 +243,12 @@ header .logo b{color:var(--ui-acc);font-weight:700}
         <button id="addTextBtn">＋ Текст</button>
       </div>
     </div>
+    <div class="dd-row">
+      <button class="dd-btn" data-dd="swatches">🎨 Фон ▾</button>
+      <button class="dd-btn" data-dd="textcolors">🅰 Цвет текста ▾</button>
+    </div>
+    <div class="swatches dd" id="swatches"></div>
+    <div class="swatches dd" id="textcolors"></div>
     <div>
       <div class="row-title">Добавить слайд</div>
       <div class="presets" id="presets">
@@ -261,12 +267,6 @@ header .logo b{color:var(--ui-acc);font-weight:700}
       <div class="row-title">Слайды <span id="cnt"></span></div>
       <div class="film" id="film"></div>
     </div>
-    <div class="dd-row">
-      <button class="dd-btn" data-dd="swatches">🎨 Фон ▾</button>
-      <button class="dd-btn" data-dd="textcolors">🅰 Цвет текста ▾</button>
-    </div>
-    <div class="swatches dd" id="swatches"></div>
-    <div class="swatches dd" id="textcolors"></div>
     <div id="sizeRow" style="display:none">
       <div class="row-title">Размер фото-кругляшка</div>
       <input type="range" id="sizeSlider" min="80" max="280" value="120" style="width:100%;accent-color:var(--ui-acc)">
