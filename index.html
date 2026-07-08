@@ -137,6 +137,8 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 .hbtn.iconbtn{font-size:17px;padding:8px 12px;line-height:1}
 .dd-btn{border:1px solid var(--ui-line);background:var(--ui-panel-2);color:var(--ui-text);border-radius:10px;padding:7px 12px;font:600 12px 'Inter',sans-serif;cursor:pointer;text-align:left}
 .ddwrap{display:flex;flex-direction:column}
+.dd-row{display:flex;gap:8px}
+.dd-row .dd-btn{flex:1;text-align:center;padding:8px 8px}
 .btn-grp{display:inline-flex;gap:6px}
 .swatches.dd{display:none}
 .swatches.dd.open{display:flex;margin-top:8px}
@@ -259,14 +261,12 @@ header .logo b{color:var(--ui-acc);font-weight:700}
       <div class="row-title">Слайды <span id="cnt"></span></div>
       <div class="film" id="film"></div>
     </div>
-    <div class="ddwrap">
-      <button class="dd-btn" data-dd="swatches">🎨 Фон слайда ▾</button>
-      <div class="swatches dd" id="swatches"></div>
+    <div class="dd-row">
+      <button class="dd-btn" data-dd="swatches">🎨 Фон ▾</button>
+      <button class="dd-btn" data-dd="textcolors">🅰 Цвет текста ▾</button>
     </div>
-    <div class="ddwrap">
-      <button class="dd-btn" data-dd="textcolors">🅰 Цвет текста ▾ <span style="color:var(--ui-dim);font-weight:400">(тронь надпись)</span></button>
-      <div class="swatches dd" id="textcolors"></div>
-    </div>
+    <div class="swatches dd" id="swatches"></div>
+    <div class="swatches dd" id="textcolors"></div>
     <div id="sizeRow" style="display:none">
       <div class="row-title">Размер фото-кругляшка</div>
       <input type="range" id="sizeSlider" min="80" max="280" value="120" style="width:100%;accent-color:var(--ui-acc)">
