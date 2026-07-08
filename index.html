@@ -234,6 +234,14 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 
   <div class="controls">
     <div>
+      <div class="row-title">Выделенный текст</div>
+      <div class="fmtbar">
+        <button data-cmd="italic"><em>Курсив</em></button>
+        <button data-cmd="underline"><span class="u">Подчеркнуть</span></button>
+        <button id="addTextBtn">＋ Текст</button>
+      </div>
+    </div>
+    <div>
       <div class="row-title">Добавить слайд</div>
       <div class="presets" id="presets">
         <button data-t="cover">🖼 Обложка</button>
@@ -258,14 +266,6 @@ header .logo b{color:var(--ui-acc);font-weight:700}
     <div class="ddwrap">
       <button class="dd-btn" data-dd="textcolors">🅰 Цвет текста ▾ <span style="color:var(--ui-dim);font-weight:400">(тронь надпись)</span></button>
       <div class="swatches dd" id="textcolors"></div>
-    </div>
-    <div>
-      <div class="row-title">Выделенный текст</div>
-      <div class="fmtbar">
-        <button data-cmd="italic"><em>Курсив</em></button>
-        <button data-cmd="underline"><span class="u">Подчеркнуть</span></button>
-        <button id="addTextBtn">＋ Текст</button>
-      </div>
     </div>
     <div id="sizeRow" style="display:none">
       <div class="row-title">Размер фото-кругляшка</div>
