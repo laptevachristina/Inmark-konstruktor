@@ -677,11 +677,14 @@ function wireSlide(el){
 /* ---- hist: undo / redo ---- */
 var hist=[],hpos=-1,pushT=null;
 function serialize(){return JSON.stringify({format:format,cur:cur,slides:slides.map(function(s){return{type:s.type,bg:s.el.dataset.bg,f916:s.el.classList.contains('f916'),html:s.el.innerHTML};})});}
-function pushHistory(){
+var _phTimer=null;
+function _flushHistory(){if(_phTimer){clearTimeout(_phTimer);_phTimer=null;_pushHistoryNow();}}
+function pushHistory(){if(_phTimer)clearTimeout(_phTimer);_phTimer=setTimeout(function(){_phTimer=null;_pushHistoryNow();},220);}
+function _pushHistoryNow(){
   var snap=serialize();
   if(hist[hpos]===snap)return;
   hist=hist.slice(0,hpos+1);hist.push(snap);
-  if(hist.length>25)hist.shift();
+  if(hist.length>12)hist.shift();
   hpos=hist.length-1;updateUndoUI();
 }
 function pushSoon(){clearTimeout(pushT);pushT=setTimeout(pushHistory,600);}
@@ -693,7 +696,7 @@ function restoreState(snap){
   cur=Math.min(st.cur,slides.length-1);
   render();updateUndoUI();
 }
-function undo(){if(hpos>0){hpos--;restoreState(hist[hpos]);}}
+function undo(){_flushHistory();if(hpos>0){hpos--;restoreState(hist[hpos]);}}
 function redo(){if(hpos<hist.length-1){hpos++;restoreState(hist[hpos]);}}
 function updateUndoUI(){var u=document.getElementById('undoBtn'),r=document.getElementById('redoBtn');if(u)u.disabled=hpos<=0;if(r)r.disabled=hpos>=hist.length-1;}
 
@@ -772,7 +775,9 @@ sizeSlider.addEventListener('input',function(){
   ph.style.width=sizeSlider.value+'px';ph.style.height=sizeSlider.value+'px';
   updateFilm();
 });
-function updateFilm(){
+var _filmTimer=null;
+function updateFilm(){if(_filmTimer)clearTimeout(_filmTimer);_filmTimer=setTimeout(_updateFilmNow,140);}
+function _updateFilmNow(){
   var film=document.getElementById('film');var _sl=film.scrollLeft;film.innerHTML='';
   slides.forEach(function(s,i){
     var chip=document.createElement('div');
