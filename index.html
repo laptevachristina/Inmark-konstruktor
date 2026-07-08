@@ -140,6 +140,7 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 [data-edit]:focus{box-shadow:inset 0 0 0 1px rgba(155,160,126,.9)}
 .slide .photo:hover{filter:brightness(.97)}
 
+.undo-row{display:flex;gap:8px}
 .controls{border-top:1px solid var(--ui-line);padding:12px 14px calc(20px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:14px}
 .row-title{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--ui-dim);margin-bottom:7px}
 .swatches{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -208,8 +209,6 @@ header .logo b{color:var(--ui-acc);font-weight:700}
       <button data-f="45" class="on">4:5</button>
       <button data-f="916">9:16</button>
     </div>
-    <button class="hbtn iconbtn" id="undoBtn" title="Отменить">↶</button>
-    <button class="hbtn iconbtn" id="redoBtn" title="Вернуть">↷</button>
     <div class="grow"></div>
     <button class="hbtn" id="exp-one">Слайд</button>
     <button class="hbtn primary" id="exp-all">Скачать всё</button>
@@ -220,6 +219,7 @@ header .logo b{color:var(--ui-acc);font-weight:700}
   </div>
 
   <div class="controls">
+    <div class="undo-row"><button class="hbtn" id="undoBtn">↶ Отменить</button><button class="hbtn" id="redoBtn">↷ Вернуть</button></div>
     <div>
       <div class="row-title">Фон слайда</div>
       <div class="swatches" id="swatches"></div>
@@ -289,6 +289,7 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 </div>
 
 <input type="file" id="filepick" accept="image/*" style="position:fixed;top:0;left:0;width:1px;height:1px;opacity:0">
+<div id="measurer" style="position:fixed;left:-99999px;top:0;width:540px;pointer-events:none;opacity:0"></div>
 
 <script>
 var BIRD_SVG="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"16400 16300 6900 7350\" role=\"img\" aria-label=\"\u041f\u0442\u0438\u0446\u0430 inmark\">\n<g fill=\"#E45D50\">\n<path d=\"M20172 22738c-432,0 -831,-107 -1198,-320 -367,-213 -657,-502 -870,-866 -213,-364 -320,-762 -320,-1194 0,-432 107,-830 320,-1194 213,-364 503,-652 870,-865 367,-214 766,-320 1198,-320 290,0 569,50 836,149 267,100 506,240 717,422 79,63 160,78 243,47 82,-31 123,-101 123,-209l0 -145c-5,-85 13,-151 56,-196 42,-46 101,-68 175,-68l0 0c74,0 132,22 174,68 43,45 62,111 56,196l0 2627c6,85 -13,151 -56,196 -42,46 -100,68 -174,68l0 0c-74,0 -133,-22 -175,-68 -43,-45 -61,-111 -56,-196l0 -512c0,-352 -85,-675 -256,-968 -170,-293 -402,-524 -695,-695 -292,-170 -615,-256 -968,-256 -352,0 -676,86 -972,256 -296,171 -529,402 -699,695 -171,293 -256,616 -256,968 0,353 85,675 256,968 170,293 403,525 699,695 296,171 620,256 972,256 393,0 728,-94 1007,-281 62,-40 113,-60 153,-60 74,0 131,23 171,68 40,46 60,94 60,145 0,103 -46,182 -137,239 -364,233 -782,350 -1254,350z\"/>\n<path d=\"M19968 19966c-57,0 -105,-19 -145,-55 -40,-37 -60,-82 -60,-133 0,-57 20,-103 60,-140 40,-37 88,-56 145,-56 51,0 95,19 132,56 37,37 55,83 55,140 0,51 -18,96 -55,133 -37,36 -81,55 -132,55z\"/>\n<path d=\"M22543 22695c-62,40 -126,48 -192,26 -65,-23 -120,-74 -166,-154l-1723 -2900c-34,-56 -59,-96 -76,-119 -63,-85 -128,-149 -197,-192 -68,-42 -142,-64 -221,-64 -131,0 -241,50 -329,149 -88,100 -132,252 -132,457l0 733c0,182 46,350 137,503 91,154 267,231 528,231 228,0 413,-49 555,-145 62,-40 123,-56 183,-47 60,8 107,38 141,89 40,63 51,127 34,192 -17,66 -57,121 -119,167 -103,73 -214,126 -333,157 -119,32 -273,47 -461,47 -341,0 -614,-108 -818,-324 -205,-216 -307,-506 -307,-870l0 -213c0,-136 -6,-225 -17,-264l-9 -17c-6,-29 -17,-54 -34,-77 -17,-23 -40,-43 -68,-60 -23,-23 -57,-43 -103,-60 -34,-22 -65,-45 -94,-68 -28,-23 -42,-48 -42,-77 0,-17 14,-35 42,-55 29,-20 63,-38 103,-55l102 -60c63,-34 120,-88 171,-162 0,-6 1,-13 4,-22 3,-8 7,-15 13,-21 205,-392 489,-588 853,-588 216,0 386,54 511,162 126,108 242,244 350,409 0,6 2,11 4,17 3,6 7,11 13,17l1757 2934c40,57 53,118 38,183 -14,66 -46,113 -98,141z\"/>\n</g>\n</svg>";
@@ -302,14 +303,14 @@ var BIRD_SVG="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"16400 16300 69
   meta('apple-mobile-web-app-title','SeaL_');
   meta('theme-color','#31353A');
   document.title='inmark · карусели';
-  /* home-screen icon: птичка inmark */
+  /* home-screen icon: коралловый фон, кремовая птица во весь размер */
   function drawIcon(){
     try{
       var c=document.createElement('canvas');c.width=c.height=180;var x=c.getContext('2d');
-      x.fillStyle='#FEF2E8';x.fillRect(0,0,180,180);
+      x.fillStyle='#E45D50';x.fillRect(0,0,180,180);
       var im=new Image();
-      im.onload=function(){try{x.drawImage(im,34,34,112,112);var l=document.querySelector('link[rel="apple-touch-icon"]');if(!l){l=document.createElement('link');l.rel='apple-touch-icon';document.head.appendChild(l);}l.href=c.toDataURL('image/png');}catch(e){}};
-      im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(BIRD_SVG);
+      im.onload=function(){try{x.drawImage(im,11,6,158,168);var l=document.querySelector('link[rel="apple-touch-icon"]');if(!l){l=document.createElement('link');l.rel='apple-touch-icon';document.head.appendChild(l);}l.href=c.toDataURL('image/png');}catch(e){}};
+      im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(BIRD_SVG.replace(/#E45D50/gi,'#FEF2E8'));
     }catch(e){}
   }
   drawIcon();
@@ -713,10 +714,11 @@ document.getElementById('addTextBtn').addEventListener('click',function(){
 /* ---- render ---- */
 function fit(){
   var s=slides[cur];if(!s)return;
-  var avail=stage.clientWidth-32;
-  var sc=Math.min(1,avail/540);
-  curFitScale=sc;
   var h=s.el.classList.contains('f916')?960:675;
+  var availW=stage.clientWidth-24,availH=stage.clientHeight-24;
+  var sc=Math.min(1,availW/540);
+  if(availH>40)sc=Math.min(sc,availH/h);
+  curFitScale=sc;
   s.el.style.transform='scale('+sc+')';
   scaler.style.width=(540*sc)+'px';scaler.style.height=(h*sc)+'px';
 }
@@ -770,6 +772,7 @@ function updateFilm(){
 }
 
 window.addEventListener('resize',fit);
+if(window.visualViewport){window.visualViewport.addEventListener('resize',fit);}
 
 /* ---- format toggle ---- */
 document.getElementById('fmt').addEventListener('click',function(e){
@@ -786,31 +789,51 @@ document.getElementById('presets').addEventListener('click',function(e){
 });
 
 /* ---- export ---- */
+function bgColorOf(el){var k=el.dataset.bg,c=COLORS.filter(function(x){return x.k===k;})[0];return c?c.c:'#FFFFFF';}
+function roundRectPath(ctx,x,y,w,h,r){r=Math.max(0,Math.min(r,w/2,h/2));ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 function slideToPNG(el){
   return new Promise(function(resolve,reject){
-    var w=540,h=el.classList.contains('f916')?960:675;
-    var clone=el.cloneNode(true);
-    clone.style.transform='none';clone.style.boxShadow='none';clone.style.borderRadius='0';
+    var w=540,h=el.classList.contains('f916')?960:675,ES=2;
+    /* measure photos at natural size (works for detached slides too) */
+    var meas=document.getElementById('measurer');
+    var parent=el.parentNode,next=el.nextSibling,pt=el.style.transform;
+    el.style.transform='none';meas.appendChild(el);
+    var sr=el.getBoundingClientRect(),photos=[];
+    el.querySelectorAll('[data-photo].has-img, .frame.has-img').forEach(function(p){
+      var im=p.querySelector('.ph-img');if(!im||!im.complete||!im.naturalWidth)return;
+      var r=p.getBoundingClientRect(),cs=getComputedStyle(p);
+      photos.push({img:im,x:r.left-sr.left,y:r.top-sr.top,W:r.width,H:r.height,
+        rad:parseFloat(cs.borderTopLeftRadius)||0,
+        s:parseFloat(p.dataset.scale)||1,tx:parseFloat(p.dataset.x)||0,ty:parseFloat(p.dataset.y)||0});
+    });
+    var bg=bgColorOf(el),clone=el.cloneNode(true);
+    if(parent){parent.insertBefore(el,next);}else if(el.parentNode){el.parentNode.removeChild(el);}
+    el.style.transform=pt;
+    /* overlay = text/scrim only; slide bg + photo slots + images made transparent */
+    clone.style.transform='none';clone.style.boxShadow='none';clone.style.borderRadius='0';clone.style.background='transparent';
     var fontcss=document.getElementById('fontcss').textContent;
     var slidecss=document.getElementById('slidecss').textContent;
-    var extra=".ph-empty:before{content:''!important}.ph-label,.fr-label{display:none!important}.ph-pick,.fr-del,.fr-resize,.mv-handle,.mv-del{display:none!important}.frame{outline:none!important;box-shadow:none!important}[data-edit]{box-shadow:none!important}";
+    var extra=".ph-empty:before{content:''!important}.ph-label,.fr-label{display:none!important}.ph-pick,.fr-del,.fr-resize,.mv-handle,.mv-del{display:none!important}.frame{outline:none!important;box-shadow:none!important;background:transparent!important}.photo{background:transparent!important}.ph-img{display:none!important}.slide{background:transparent!important}[data-edit]{box-shadow:none!important}";
     var xml=new XMLSerializer().serializeToString(clone);
-    var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'+
-      '<style>'+fontcss+slidecss+extra+'</style>'+
-      '<foreignObject x="0" y="0" width="'+w+'" height="'+h+'">'+
-      '<div xmlns="http://www.w3.org/1999/xhtml">'+xml+'</div>'+
-      '</foreignObject></svg>';
-    var url='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
-    var img=new Image();
-    img.onload=function(){
-      var c=document.createElement('canvas');c.width=w*2;c.height=h*2;
-      var ctx=c.getContext('2d');ctx.scale(2,2);
-      ctx.fillStyle='#F4EEE0';ctx.fillRect(0,0,w,h);
-      ctx.drawImage(img,0,0);
-      c.toBlob(function(blob){resolve(blob);},'image/png');
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><style>'+fontcss+slidecss+extra+'</style><foreignObject x="0" y="0" width="'+w+'" height="'+h+'"><div xmlns="http://www.w3.org/1999/xhtml">'+xml+'</div></foreignObject></svg>';
+    var overlay=new Image();
+    overlay.onload=function(){
+      try{
+        var c=document.createElement('canvas');c.width=w*ES;c.height=h*ES;
+        var ctx=c.getContext('2d');ctx.scale(ES,ES);
+        ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+        photos.forEach(function(p){
+          ctx.save();roundRectPath(ctx,p.x,p.y,p.W,p.H,p.rad);ctx.clip();
+          var nw=p.img.naturalWidth,nh=p.img.naturalHeight,cover=Math.max(p.W/nw,p.H/nh);
+          var dw=nw*cover*p.s,dh=nh*cover*p.s,cx=p.x+p.W/2+p.tx,cy=p.y+p.H/2+p.ty;
+          ctx.drawImage(p.img,cx-dw/2,cy-dh/2,dw,dh);ctx.restore();
+        });
+        ctx.drawImage(overlay,0,0,w,h);
+        c.toBlob(function(blob){resolve(blob);},'image/png');
+      }catch(e){reject(e);}
     };
-    img.onerror=function(){reject(new Error('render'));};
-    img.src=url;
+    overlay.onerror=function(){reject(new Error('render'));};
+    overlay.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
   });
 }
 function saveBlobs(blobs){
