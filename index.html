@@ -225,6 +225,10 @@ header .logo b{color:var(--ui-acc);font-weight:700}
       <div class="swatches" id="swatches"></div>
     </div>
     <div>
+      <div class="row-title">Цвет текста <span style="color:var(--ui-dim);font-weight:400;text-transform:none;letter-spacing:0">— тронь надпись, потом выбери</span></div>
+      <div class="swatches" id="textcolors"></div>
+    </div>
+    <div>
       <div class="row-title">Выделенный текст</div>
       <div class="fmtbar">
         <button data-cmd="italic"><em>Курсив</em></button>
@@ -314,11 +318,44 @@ var BIRD_SVG="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"16400 16300 69
 /* ---- palette ---- */
 var COLORS=[
   {k:'milk',  c:'#FEF2E8', name:'Молочный'},
+  {k:'cream', c:'#FDE1C6', name:'Кремовый'},
   {k:'white', c:'#FFFFFF', name:'Белый'},
-  {k:'graphite',c:'#3F353B',name:'Тёмный', dark:true},
-  {k:'sage',  c:'#E45D50', name:'Коралл'},
-  {k:'blush', c:'#F9C5B8', name:'Персиковый'}
+  {k:'sand',  c:'#CCB097', name:'Беж'},
+  {k:'peach', c:'#F9C5B8', name:'Персик'},
+  {k:'pink',  c:'#FF94A4', name:'Розовый'},
+  {k:'yellow',c:'#F3C24B', name:'Жёлтый'},
+  {k:'coral', c:'#E45D50', name:'Коралл', dark:true},
+  {k:'orange',c:'#F7941D', name:'Оранжевый', dark:true},
+  {k:'terra', c:'#B87055', name:'Терракота', dark:true},
+  {k:'tan',   c:'#A47E4E', name:'Тан', dark:true},
+  {k:'turq',  c:'#54B6BA', name:'Бирюза', dark:true},
+  {k:'sage',  c:'#899D83', name:'Шалфей', dark:true},
+  {k:'olive', c:'#646A2A', name:'Олива', dark:true},
+  {k:'green', c:'#1F4422', name:'Тёмно-зелёный', dark:true},
+  {k:'brown', c:'#71533F', name:'Коричневый', dark:true},
+  {k:'wine',  c:'#9B172D', name:'Вино', dark:true},
+  {k:'graphite',c:'#3F353B',name:'Графит', dark:true}
 ];
+/* inmark: выбор цвета текста */
+(function(){
+  var lastText=null;
+  document.addEventListener('focusin',function(e){var el=e.target;if(el&&el.getAttribute&&el.getAttribute('data-edit')!==null)lastText=el;});
+  var box=document.getElementById('textcolors');
+  function apply(col){
+    var targets=[];
+    if(lastText&&typeof slides!=='undefined'&&slides[cur]&&slides[cur].el.contains(lastText))targets=[lastText];
+    else if(typeof slides!=='undefined'&&slides[cur])targets=[].slice.call(slides[cur].el.querySelectorAll('[data-edit]'));
+    targets.forEach(function(el){el.style.color=col;});
+    if(typeof updateFilm==='function')updateFilm();
+    if(typeof pushHistory==='function')pushHistory();
+  }
+  if(box){
+    var auto=document.createElement('div');auto.className='sw';auto.title='Авто (по фону)';
+    auto.style.cssText='background:conic-gradient(#FEF2E8 0 50%,#3F353B 0 100%)';
+    auto.addEventListener('click',function(){apply('');});box.appendChild(auto);
+    COLORS.forEach(function(c){var d=document.createElement('div');d.className='sw';d.style.background=c.c;d.title=c.name;d.addEventListener('click',function(){apply(c.c);});box.appendChild(d);});
+  }
+})();
 
 /* ---- state ---- */
 var format='45';
