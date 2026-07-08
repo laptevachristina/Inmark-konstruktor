@@ -224,6 +224,11 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 
   <div class="controls">
     <div class="undo-row"><button class="hbtn" id="undoBtn">↶ Отменить</button><button class="hbtn" id="redoBtn">↷ Вернуть</button></div>
+    <div id="collageRow" style="display:none">
+      <div class="row-title">Коллаж — свободные рамки</div>
+      <button class="hbtn primary" id="addFrameBtn">＋ Добавить рамку</button>
+      <div style="color:var(--ui-dim);font-size:12px;margin-top:7px;line-height:1.5">Тяни рамку — двигаешь · угол — размер · два пальца/колесо — масштаб фото · ＋ — фото · ✕ — убрать</div>
+    </div>
     <div>
       <div class="row-title">Добавить слайд</div>
       <div class="presets" id="presets">
@@ -261,11 +266,6 @@ header .logo b{color:var(--ui-acc);font-weight:700}
     <div id="sizeRow" style="display:none">
       <div class="row-title">Размер фото-кругляшка</div>
       <input type="range" id="sizeSlider" min="80" max="280" value="120" style="width:100%;accent-color:var(--ui-acc)">
-    </div>
-    <div id="collageRow" style="display:none">
-      <div class="row-title">Коллаж — свободные рамки</div>
-      <button class="hbtn primary" id="addFrameBtn">＋ Добавить рамку</button>
-      <div style="color:var(--ui-dim);font-size:12px;margin-top:7px;line-height:1.5">Тяни рамку — двигаешь · угол — размер · два пальца/колесо — масштаб фото · ＋ — фото · ✕ — убрать</div>
     </div>
 
   </div>
