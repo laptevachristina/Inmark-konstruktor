@@ -140,8 +140,8 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 .dd-row{display:flex;gap:8px}
 .dd-row .dd-btn{flex:1;text-align:center;padding:8px 8px}
 .btn-grp{display:inline-flex;gap:6px}
-.swatches.dd{display:none}
-.swatches.dd.open{display:flex;margin-top:8px}
+.swatches.dd{display:none;position:fixed;z-index:60;max-width:300px;background:var(--ui-panel);border:1px solid var(--ui-line);padding:10px;border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.5)}
+.swatches.dd.open{display:flex;flex-wrap:wrap;gap:8px}
 .hbtn:disabled{opacity:.32;cursor:default}
 
 .stage{flex:1 1 auto;min-height:120px;display:grid;place-items:center;padding:12px;overflow:hidden}
@@ -205,7 +205,7 @@ header .logo b{color:var(--ui-acc);font-weight:700}
   .pad{padding:44px}
   .hint{display:none}
   .stage{padding:8px;min-height:0}
-  .controls{height:33vh;max-height:33vh}
+  .controls{height:29vh;max-height:29vh}
 }
 </style>
 
@@ -226,6 +226,8 @@ header .logo b{color:var(--ui-acc);font-weight:700}
     </div>
     <span class="btn-grp"><button class="hbtn iconbtn" id="undoBtn" title="Отменить">↶</button><button class="hbtn iconbtn" id="redoBtn" title="Вернуть">↷</button></span>
     <button class="hbtn" id="addFrameBtn" style="display:none">＋ Рамка</button>
+    <button class="hbtn dd-btn" data-dd="swatches">🎨 Фон</button>
+    <button class="hbtn dd-btn" data-dd="textcolors">🅰 Цвет</button>
     <div class="grow"></div>
     <button class="hbtn primary" id="exp-all">Скачать</button>
   </header>
@@ -243,12 +245,6 @@ header .logo b{color:var(--ui-acc);font-weight:700}
         <button id="addTextBtn">＋ Текст</button>
       </div>
     </div>
-    <div class="dd-row">
-      <button class="dd-btn" data-dd="swatches">🎨 Фон ▾</button>
-      <button class="dd-btn" data-dd="textcolors">🅰 Цвет текста ▾</button>
-    </div>
-    <div class="swatches dd" id="swatches"></div>
-    <div class="swatches dd" id="textcolors"></div>
     <div>
       <div class="row-title">Добавить слайд</div>
       <div class="presets" id="presets">
@@ -287,6 +283,8 @@ header .logo b{color:var(--ui-acc);font-weight:700}
   </div>
 </div>
 
+<div class="swatches dd" id="swatches"></div>
+<div class="swatches dd" id="textcolors"></div>
 <div class="modal" id="modal">
   <div class="mh">
     <button class="hbtn" id="modal-close">← Назад</button>
@@ -734,7 +732,8 @@ document.getElementById('addTextBtn').addEventListener('click',function(){
   if(cur<0||!slides[cur])return;
   var b=addTextBlock(slides[cur].el);b.focus();updateFilm();pushHistory();
 });
-document.querySelectorAll('.dd-btn').forEach(function(b){b.addEventListener('click',function(){var t=document.getElementById(b.dataset.dd);var wasOpen=t.classList.contains('open');document.querySelectorAll('.dd.open').forEach(function(d){d.classList.remove('open');});if(!wasOpen)t.classList.add('open');});});
+document.querySelectorAll('.dd-btn').forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var t=document.getElementById(b.dataset.dd);var wasOpen=t.classList.contains('open');document.querySelectorAll('.dd.open').forEach(function(d){d.classList.remove('open');});if(!wasOpen){var r=b.getBoundingClientRect();t.style.top=(r.bottom+6)+'px';t.style.left=Math.max(8,Math.min(r.left,window.innerWidth-296))+'px';t.classList.add('open');}});});
+document.addEventListener('click',function(){document.querySelectorAll('.dd.open').forEach(function(d){d.classList.remove('open');});});
 
 /* ---- render ---- */
 function fit(){
