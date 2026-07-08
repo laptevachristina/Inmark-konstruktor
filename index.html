@@ -133,8 +133,9 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 .hbtn.iconbtn{font-size:17px;padding:8px 12px;line-height:1}
 .dd-btn{border:1px solid var(--ui-line);background:var(--ui-panel-2);color:var(--ui-text);border-radius:10px;padding:10px 13px;font:600 13px 'Inter',sans-serif;cursor:pointer;text-align:left}
 .ddwrap{display:flex;flex-direction:column}
-.dd{display:none}
-.dd.open{display:flex;margin-top:8px}
+.btn-grp{display:inline-flex;gap:6px}
+.swatches.dd{display:none}
+.swatches.dd.open{display:flex;margin-top:8px}
 .hbtn:disabled{opacity:.32;cursor:default}
 
 .stage{flex:1 1 auto;min-height:120px;display:grid;place-items:center;padding:12px;overflow:hidden}
@@ -217,8 +218,7 @@ header .logo b{color:var(--ui-acc);font-weight:700}
       <button data-f="45" class="on">4:5</button>
       <button data-f="916">9:16</button>
     </div>
-    <button class="hbtn iconbtn" id="undoBtn" title="Отменить">↶</button>
-    <button class="hbtn iconbtn" id="redoBtn" title="Вернуть">↷</button>
+    <span class="btn-grp"><button class="hbtn iconbtn" id="undoBtn" title="Отменить">↶</button><button class="hbtn iconbtn" id="redoBtn" title="Вернуть">↷</button></span>
     <button class="hbtn" id="addFrameBtn" style="display:none">＋ Рамка</button>
     <div class="grow"></div>
     <button class="hbtn primary" id="exp-all">Скачать</button>
