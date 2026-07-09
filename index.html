@@ -298,6 +298,7 @@ header .logo b{color:var(--ui-acc);font-weight:700}
       <div class="ptitle">Как будет выглядеть лента · тяни плитки местами</div>
       <div class="grid12" id="grid12"></div>
       <div class="pnote">Пустую плитку — нажми и добавь фото. Заполненную — тяни на другое место. ✕ — убрать.</div>
+      <button class="hbtn primary" id="dlGrid" style="display:block;margin:14px auto 0">⬇ Скачать сетку</button>
     </div>
   </div>
 </div>
@@ -340,6 +341,7 @@ var BIRD_SVG="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"16400 16300 69
     }catch(e){}
   }
   drawIcon();
+  if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}
 })();
 
 /* ---- palette ---- */
@@ -1003,6 +1005,28 @@ function setMode(m){
   document.getElementById('planner').style.display=deck?'none':'flex';
   if(!deck)renderGrid();
 }
+function downloadGrid(){
+  var cols=3,rows=4,cw=360,ch=450,gap=6;
+  var W=cols*cw+(cols-1)*gap,H=rows*ch+(rows-1)*gap;
+  var c=document.createElement('canvas');c.width=W;c.height=H;var x=c.getContext('2d');
+  x.fillStyle='#c9ccd1';x.fillRect(0,0,W,H);
+  var tasks=[];
+  for(var i=0;i<12;i++){(function(i){
+    var col=i%3,row=Math.floor(i/3),dx=col*(cw+gap),dy=row*(ch+gap);
+    if(feed[i]){var im=new Image();tasks.push(new Promise(function(res){im.onload=function(){res({im:im,dx:dx,dy:dy});};im.onerror=function(){res({empty:true,dx:dx,dy:dy});};im.src=feed[i];}));}
+    else{tasks.push(Promise.resolve({empty:true,dx:dx,dy:dy}));}
+  })(i);}
+  Promise.all(tasks).then(function(cells){
+    cells.forEach(function(cell){
+      if(cell.empty){x.fillStyle='#eceff3';x.fillRect(cell.dx,cell.dy,cw,ch);return;}
+      var im=cell.im,nw=im.naturalWidth,nh=im.naturalHeight,cover=Math.max(cw/nw,ch/nh),iw=nw*cover,ih=nh*cover;
+      x.save();x.beginPath();x.rect(cell.dx,cell.dy,cw,ch);x.clip();
+      x.drawImage(im,cell.dx+(cw-iw)/2,cell.dy+(ch-ih)/2,iw,ih);x.restore();
+    });
+    c.toBlob(function(blob){if(typeof saveBlobs==='function')saveBlobs([blob]);else{var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='lenta.png';a.click();}},'image/png');
+  });
+}
+document.getElementById('dlGrid').addEventListener('click',downloadGrid);
 
 document.getElementById('undoBtn').addEventListener('click',undo);
 document.getElementById('redoBtn').addEventListener('click',redo);
