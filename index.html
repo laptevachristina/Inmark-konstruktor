@@ -202,11 +202,15 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 .modal .save-note{color:var(--ui-dim);font-size:13px;text-align:center;max-width:420px;margin:0 auto 4px}
 
 @media (max-width:520px){
+  header{gap:7px}
   header .logo{font-size:17px}
+  .seg{flex:0 0 auto;padding:2px}
+  .seg button{padding:6px 8px;font-size:11px}
+  .hbtn{padding:8px 11px;font-size:12px;flex:0 0 auto}
   .pad{padding:44px}
   .hint{display:none}
-  .stage{padding:8px;min-height:0}
-  .controls{height:32vh;max-height:32vh}
+  .stage{padding:4px;min-height:0}
+  .controls{height:26vh;max-height:26vh}
 }
 </style>
 
@@ -319,8 +323,8 @@ var BIRD_SVG="<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"16400 16300 69
       var c=document.createElement('canvas');c.width=c.height=180;var x=c.getContext('2d');
       x.fillStyle='#E45D50';x.fillRect(0,0,180,180);
       var im=new Image();
-      im.onload=function(){try{x.drawImage(im,0,-6,180,192);var l=document.querySelector('link[rel="apple-touch-icon"]');if(!l){l=document.createElement('link');l.rel='apple-touch-icon';document.head.appendChild(l);}l.href=c.toDataURL('image/png');}catch(e){}};
-      im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(BIRD_SVG.replace(/#E45D50/gi,'#FEF2E8'));
+      im.onload=function(){try{x.drawImage(im,28,28,124,124);var l=document.querySelector('link[rel="apple-touch-icon"]');if(!l){l=document.createElement('link');l.rel='apple-touch-icon';document.head.appendChild(l);}l.href=c.toDataURL('image/png');}catch(e){}};
+      im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(BIRD_SVG.replace(/#E45D50/gi,'#FEF2E8').replace('viewBox="16400 16300 6900 7350"','viewBox="17784 17926 4863 4863" width="124" height="124" preserveAspectRatio="xMidYMid meet"'));
     }catch(e){}
   }
   drawIcon();
