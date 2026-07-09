@@ -83,6 +83,12 @@ em{font-style:italic}
 
 /* free collage frames */
 .collage-canvas{position:absolute;inset:0;z-index:0}
+.fixed-grid{position:absolute;inset:0;display:grid;gap:0;z-index:0}
+.fixed-grid.g4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.fixed-grid.s3{grid-template-columns:1fr;grid-template-rows:1fr 1fr 1fr}
+.gcell{border-radius:0}
+.mid-band{position:absolute;left:0;right:0;top:50%;transform:translateY(-50%);min-height:20%;display:flex;align-items:center;justify-content:center;padding:22px;z-index:2;text-align:center;color:var(--graphite)}
+.mid-band.dark{color:var(--milk)}
 .frame{position:absolute;overflow:hidden;border-radius:14px;background:var(--slot);cursor:move;touch-action:none;box-shadow:0 2px 12px rgba(0,0,0,.10)}
 .frame .fr-label{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:#9a9384;text-align:center;padding:6px;pointer-events:none}
 .frame.has-img .fr-label{display:none}
@@ -266,6 +272,8 @@ header .logo b{color:var(--ui-acc);font-weight:700}
         <button data-t="splitT">▤ Фото снизу</button>
         <button data-t="splitL">▐ Фото справа</button>
         <button data-t="splitR">▌ Фото слева</button>
+        <button data-t="grid4">▦ Сетка 4</button>
+        <button data-t="strips3">☰ 3 полосы</button>
         <button data-t="cta">➜ С кнопкой</button>
         <button data-t="final">✦ Финал</button>
       </div>
@@ -456,10 +464,15 @@ function tpl(type){
       '<div class="h mid" data-edit data-ph="Заголовок" style="margin:6px 0 8px;font-size:38px">текст справа</div>'+
       '<div class="sub" data-edit data-ph="подзаголовок">пояснение</div>'+
     '</div>'
+  ,
+  grid4:
+    '<div class="fixed-grid g4"><div class="photo gcell" data-photo><div class="ph-label">фото 1</div></div><div class="photo gcell" data-photo><div class="ph-label">фото 2</div></div><div class="photo gcell" data-photo><div class="ph-label">фото 3</div></div><div class="photo gcell" data-photo><div class="ph-label">фото 4</div></div></div><div class="mid-band"><div class="h mid" data-edit data-ph="Заголовок">заголовок по центру</div></div>',
+  strips3:
+    '<div class="fixed-grid s3"><div class="photo gcell" data-photo><div class="ph-label">фото 1</div></div><div class="photo gcell" data-photo><div class="ph-label">фото 2</div></div><div class="photo gcell" data-photo><div class="ph-label">фото 3</div></div></div><div class="mid-band"><div class="h mid" data-edit data-ph="Заголовок">заголовок по центру</div></div>'
   };
   return T[type]||T.quote;
 }
-var NAMES={cover:'Обложка',quote:'Цитата',collage:'Коллаж',cta:'Кнопка',final:'Финал',splitB:'Фото сверху',splitT:'Фото снизу',splitL:'Фото справа',splitR:'Фото слева'};
+var NAMES={cover:'Обложка',quote:'Цитата',collage:'Коллаж',cta:'Кнопка',final:'Финал',splitB:'Фото сверху',splitT:'Фото снизу',splitL:'Фото справа',splitR:'Фото слева',grid4:'Сетка 4',strips3:'3 полосы'};
 
 /* ---- build ---- */
 function makeSlide(type,bg,html,f916){
@@ -497,7 +510,15 @@ function enhancePhoto(p){
 function applyTransform(p){
   var img=p.querySelector('.ph-img');if(!img)return;
   var s=parseFloat(p.dataset.scale)||1,x=parseFloat(p.dataset.x)||0,y=parseFloat(p.dataset.y)||0;
-  img.style.transform='translate('+x+'px,'+y+'px) scale('+s+')';
+  var W=p.clientWidth,H=p.clientHeight,nw=img.naturalWidth,nh=img.naturalHeight;
+  if(!W||!H||!nw||!nh){img.style.transform='translate('+x+'px,'+y+'px) scale('+s+')';return;}
+  var cover=Math.max(W/nw,H/nh),iw=nw*cover*s,ih=nh*cover*s;
+  var maxX=Math.max(0,(iw-W)/2),maxY=Math.max(0,(ih-H)/2);
+  x=Math.max(-maxX,Math.min(maxX,x));y=Math.max(-maxY,Math.min(maxY,y));
+  p.dataset.x=x;p.dataset.y=y;
+  img.style.transform='none';img.style.objectFit='fill';img.style.maxWidth='none';img.style.maxHeight='none';
+  img.style.width=iw+'px';img.style.height=ih+'px';img.style.right='auto';img.style.bottom='auto';
+  img.style.left=((W-iw)/2+x)+'px';img.style.top=((H-ih)/2+y)+'px';
 }
 function openPick(el){pickMode='slide';pickTarget=el;filepick.value='';filepick.click();}
 filepick.addEventListener('change',function(){
@@ -721,6 +742,8 @@ function updateUndoUI(){var u=document.getElementById('undoBtn'),r=document.getE
 function applyBg(s){
   var col=COLORS.filter(function(c){return c.k===s.el.dataset.bg;})[0]||COLORS[0];
   if(s.type==='cover'){return;} /* cover = photo */
+  var band=s.el.querySelector('.mid-band');
+  if(band){band.style.background=col.c;band.classList.toggle('dark',!!col.dark);return;}
   s.el.style.background=col.c;
   s.el.classList.toggle('dark',!!col.dark);
 }
