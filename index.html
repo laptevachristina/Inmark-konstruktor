@@ -93,6 +93,10 @@ em{font-style:italic}
 .frame.round{border-radius:999px}
 .frame.sel{outline:2px solid var(--sage);outline-offset:-1px}
 .frame.sel .fr-resize{display:block}
+.frame .fr-move{position:absolute;top:-11px;left:-11px;width:24px;height:24px;border-radius:999px;background:var(--sage);z-index:6;cursor:move;display:none;align-items:center;justify-content:center;touch-action:none;box-shadow:0 1px 5px rgba(0,0,0,.45)}
+.frame .fr-move:before{content:'\2725';color:#fff;font-size:13px}
+.frame.sel .fr-move{display:flex}
+.mini .fr-move{display:none!important}
 .frame .ph-pick{bottom:6px;right:6px}
 .mini .fr-del,.mini .fr-resize{display:none!important}
 .mini .frame{outline:none!important}
@@ -622,7 +626,7 @@ function addFrame(canvas,o){
   fr.style.left=(o.x||120)+'px';fr.style.top=(o.y||200)+'px';
   fr.style.width=(o.w||210)+'px';fr.style.height=(o.h||210)+'px';
   fr.dataset.scale=1;fr.dataset.x=0;fr.dataset.y=0;
-  fr.innerHTML='<img class="ph-img" alt=""><div class="fr-label">нажми и добавь фото</div><button type="button" class="ph-pick">＋</button><button type="button" class="fr-del">✕</button><div class="fr-resize"></div>';
+  fr.innerHTML='<img class="ph-img" alt=""><div class="fr-label">нажми и добавь фото</div><button type="button" class="ph-pick">＋</button><button type="button" class="fr-del">✕</button><div class="fr-move"></div><div class="fr-resize"></div>';
   canvas.appendChild(fr);
   wireFrameEl(fr);
   return fr;
@@ -633,8 +637,9 @@ function selectFrame(fr){
 }
 function wireFrameEl(fr){
   if(fr.__w)return;fr.__w=1;
+  if(!fr.querySelector('.fr-move')){var _m=document.createElement('div');_m.className='fr-move';fr.appendChild(_m);}
   applyTransform(fr);
-  var pointers={},mode=null,sx,sy,bl,bt,bw,bh,startDist,baseScale,downX,downY,moved;
+  var pointers={},mode=null,sx,sy,bl,bt,bw,bh,bfx,bfy,startDist,baseScale,downX,downY,moved;
   fr.addEventListener('pointerdown',function(e){
     downX=e.clientX;downY=e.clientY;moved=false;
     if(e.target.closest('.ph-pick')||e.target.closest('.fr-del')){e.stopPropagation();return;}
@@ -645,24 +650,26 @@ function wireFrameEl(fr){
     pointers[e.pointerId]={x:e.clientX,y:e.clientY};
     var ids=Object.keys(pointers);
     if(e.target.classList.contains('fr-resize')){mode='resize';sx=e.clientX;sy=e.clientY;bw=parseFloat(fr.style.width);bh=parseFloat(fr.style.height);}
+    else if(e.target.classList.contains('fr-move')){mode='framemove';sx=e.clientX;sy=e.clientY;bl=parseFloat(fr.style.left);bt=parseFloat(fr.style.top);}
     else if(ids.length===2){mode='pinch';var a=pointers[ids[0]],b=pointers[ids[1]];startDist=Math.hypot(a.x-b.x,a.y-b.y);baseScale=parseFloat(fr.dataset.scale)||1;}
-    else{mode='move';sx=e.clientX;sy=e.clientY;bl=parseFloat(fr.style.left);bt=parseFloat(fr.style.top);}
+    else{mode='pan';sx=e.clientX;sy=e.clientY;bfx=parseFloat(fr.dataset.x)||0;bfy=parseFloat(fr.dataset.y)||0;}
     e.preventDefault();e.stopPropagation();
   });
   fr.addEventListener('pointermove',function(e){
-    if(Math.abs(e.clientX-downX)+Math.abs(e.clientY-downY)>12)moved=true;
+    if(Math.abs(e.clientX-downX)+Math.abs(e.clientY-downY)>10)moved=true;
     if(!pointers[e.pointerId])return;
     pointers[e.pointerId]={x:e.clientX,y:e.clientY};
     var sc=curFitScale||1,ids=Object.keys(pointers);
     if(mode==='pinch'&&ids.length>=2){var a=pointers[ids[0]],b=pointers[ids[1]];var d=Math.hypot(a.x-b.x,a.y-b.y);if(startDist){fr.dataset.scale=Math.max(1,Math.min(5,baseScale*(d/startDist)));applyTransform(fr);}}
     else if(mode==='resize'&&moved){fr.style.width=Math.max(50,bw+(e.clientX-sx)/sc)+'px';fr.style.height=Math.max(50,bh+(e.clientY-sy)/sc)+'px';}
-    else if(mode==='move'&&moved){fr.style.left=(bl+(e.clientX-sx)/sc)+'px';fr.style.top=(bt+(e.clientY-sy)/sc)+'px';}
+    else if(mode==='framemove'&&moved){fr.style.left=(bl+(e.clientX-sx)/sc)+'px';fr.style.top=(bt+(e.clientY-sy)/sc)+'px';}
+    else if(mode==='pan'&&moved){fr.dataset.x=(bfx+(e.clientX-sx)/sc);fr.dataset.y=(bfy+(e.clientY-sy)/sc);applyTransform(fr);}
     e.preventDefault();
   });
   fr.addEventListener('pointerup',function(e){
     delete pointers[e.pointerId];var ids=Object.keys(pointers);
     if(ids.length===0){mode=null;updateFilm();if(moved)pushHistory();}
-    else if(ids.length===1){mode='move';var pt=pointers[ids[0]];sx=pt.x;sy=pt.y;bl=parseFloat(fr.style.left);bt=parseFloat(fr.style.top);}
+    else if(ids.length===1){mode='pan';var pt=pointers[ids[0]];sx=pt.x;sy=pt.y;bfx=parseFloat(fr.dataset.x)||0;bfy=parseFloat(fr.dataset.y)||0;}
     if(!moved){
       if(e.target.closest('.fr-del')){if(fr.parentNode)fr.parentNode.removeChild(fr);updateFilm();pushHistory();}
       else if(e.target.closest('.ph-pick')||!fr.classList.contains('has-img')){selectFrame(fr);openPick(fr);}
@@ -848,7 +855,7 @@ function slideToPNG(el){
     clone.style.transform='none';clone.style.boxShadow='none';clone.style.borderRadius='0';clone.style.background='transparent';
     var fontcss=document.getElementById('fontcss').textContent;
     var slidecss=document.getElementById('slidecss').textContent;
-    var extra=".ph-empty:before{content:''!important}.ph-label,.fr-label{display:none!important}.ph-pick,.fr-del,.fr-resize,.mv-handle,.mv-del,.tx-resize{display:none!important}.frame{outline:none!important;box-shadow:none!important;background:transparent!important}.photo{background:transparent!important}.ph-img{display:none!important}.slide{background:transparent!important}[data-edit]{box-shadow:none!important}";
+    var extra=".ph-empty:before{content:''!important}.ph-label,.fr-label{display:none!important}.ph-pick,.fr-del,.fr-resize,.fr-move,.mv-handle,.mv-del,.tx-resize{display:none!important}.frame{outline:none!important;box-shadow:none!important;background:transparent!important}.photo{background:transparent!important}.ph-img{display:none!important}.slide{background:transparent!important}[data-edit]{box-shadow:none!important}";
     var xml=new XMLSerializer().serializeToString(clone);
     var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><style>'+fontcss+slidecss+extra+'</style><foreignObject x="0" y="0" width="'+w+'" height="'+h+'"><div xmlns="http://www.w3.org/1999/xhtml">'+xml+'</div></foreignObject></svg>';
     var overlay=new Image();
