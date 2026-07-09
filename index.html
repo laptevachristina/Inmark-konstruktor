@@ -357,14 +357,21 @@ var COLORS=[
 ];
 /* inmark: выбор цвета текста */
 (function(){
-  var lastText=null;
+  var lastText=null,savedRange=null;
   document.addEventListener('focusin',function(e){var el=e.target;if(el&&el.getAttribute&&el.getAttribute('data-edit')!==null)lastText=el;});
   var box=document.getElementById('textcolors');
+  var _cbtn=document.querySelector('.dd-btn[data-dd="textcolors"]');
+  if(_cbtn)_cbtn.addEventListener('pointerdown',function(){var s=window.getSelection&&window.getSelection();savedRange=(s&&s.rangeCount&&!s.isCollapsed&&lastText&&lastText.contains(s.anchorNode)&&lastText.contains(s.focusNode))?s.getRangeAt(0).cloneRange():null;});
   function apply(col){
-    var targets=[];
-    if(lastText&&typeof slides!=='undefined'&&slides[cur]&&slides[cur].el.contains(lastText))targets=[lastText];
-    else if(typeof slides!=='undefined'&&slides[cur])targets=[].slice.call(slides[cur].el.querySelectorAll('[data-edit]'));
-    targets.forEach(function(el){el.style.color=col;});
+    if(col&&savedRange&&lastText){
+      try{lastText.focus();var _s=window.getSelection();_s.removeAllRanges();_s.addRange(savedRange);document.execCommand('styleWithCSS',false,true);document.execCommand('foreColor',false,col);}catch(_){}
+    } else {
+      var targets=[];
+      if(lastText&&typeof slides!=='undefined'&&slides[cur]&&slides[cur].el.contains(lastText))targets=[lastText];
+      else if(typeof slides!=='undefined'&&slides[cur])targets=[].slice.call(slides[cur].el.querySelectorAll('[data-edit]'));
+      targets.forEach(function(el){el.style.color=col;});
+    }
+    savedRange=null;
     if(typeof updateFilm==='function')updateFilm();
     if(typeof pushHistory==='function')pushHistory();
     if(box)box.classList.remove('open');
@@ -643,9 +650,7 @@ function wireFrameEl(fr){
   fr.addEventListener('pointerdown',function(e){
     downX=e.clientX;downY=e.clientY;moved=false;
     if(e.target.closest('.ph-pick')||e.target.closest('.fr-del')){e.stopPropagation();return;}
-    var wasSel=fr.classList.contains("sel");
     selectFrame(fr);
-    if(!wasSel){mode="select";e.preventDefault();e.stopPropagation();return;}
     try{fr.setPointerCapture(e.pointerId);}catch(_){}
     pointers[e.pointerId]={x:e.clientX,y:e.clientY};
     var ids=Object.keys(pointers);
