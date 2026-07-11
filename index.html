@@ -1347,6 +1347,24 @@ document.getElementById('presets').addEventListener('click',function(e){
 /* ---- export ---- */
 function bgColorOf(el){var k=el.dataset.bg,c=COLORS.filter(function(x){return x.k===k;})[0];return c?c.c:'#FFFFFF';}
 function roundRectPath(ctx,x,y,w,h,r){r=Math.max(0,Math.min(r,w/2,h/2));ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+/* keep first maxChars characters of visible text inside root, drop the rest (used for typewriter reveal) */
+function truncateVisibleText(root,maxChars,showCursor){
+  var remaining=maxChars;
+  (function walk(node){
+    Array.prototype.slice.call(node.childNodes).forEach(function(c){
+      if(remaining<=0){c.parentNode&&c.parentNode.removeChild(c);return;}
+      if(c.nodeType===3){
+        var len=c.textContent.length;
+        if(len>remaining){c.textContent=c.textContent.slice(0,remaining);remaining=0;}
+        else{remaining-=len;}
+      }else if(c.nodeType===1){walk(c);}
+    });
+  })(root);
+  if(showCursor){
+    var cur=document.createElement('span');cur.className='type-cursor';cur.textContent='▏';
+    cur.style.cssText='opacity:.75';root.appendChild(cur);
+  }
+}
 function renderSlideCanvas(el,animState){
   return new Promise(function(resolve,reject){
     var w=540,h=el.classList.contains('f916')?960:675,ES=2;
@@ -1382,6 +1400,7 @@ function renderSlideCanvas(el,animState){
         var ce=cloneTexts[i];if(!ce)return;
         ce.style.opacity=String(a.opacity);
         ce.style.transform='translateY('+a.dy+'px)';
+        if(a.revealChars!=null)truncateVisibleText(ce,a.revealChars,a.typing);
       });
     }
     if(parent){parent.insertBefore(el,next);}else if(el.parentNode){el.parentNode.removeChild(el);}
@@ -1465,24 +1484,46 @@ document.getElementById('exp-all').addEventListener('click',function(){
 
 /* ---- animated GIF export (appear-in animation, current slide only) ---- */
 var ANIM_STAGGER=110,ANIM_DUR=480,SPIN_PERIOD_MS=8000;
+var TYPE_MS_PER_CHAR=38,TYPE_MIN_MS=300,TYPE_MAX_MS=2200,TYPE_GAP_MS=120;
 function getAnimItems(el){return Array.prototype.slice.call(el.querySelectorAll('[data-edit], .frame, [data-photo], .sticker'));}
 function hasSpinningSticker(items){return items.some(function(it){return it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1';});}
-function animStateAt(items,elapsedMs,spinMode){
+/* text blocks type one after another (DOM order), photos/frames/stickers keep the old fade+slide timing */
+function buildTypeSchedule(items){
+  var t=0,sched=new Map();
+  items.forEach(function(it){
+    if(!(it.hasAttribute&&it.hasAttribute('data-edit')))return;
+    var full=(it.textContent||'').length;
+    var dur=Math.min(TYPE_MAX_MS,Math.max(TYPE_MIN_MS,full*TYPE_MS_PER_CHAR));
+    sched.set(it,{start:t,dur:dur,full:full});
+    t+=dur+TYPE_GAP_MS;
+  });
+  return sched;
+}
+function typeScheduleEndMs(sched){var end=0;sched.forEach(function(s){end=Math.max(end,s.start+s.dur);});return end;}
+function animStateAt(items,elapsedMs,spinMode,typeSchedule){
   var state=new Map();
   items.forEach(function(it,i){
-    var opacity=1,dy=0;
+    var opacity=1,dy=0,revealChars=null,typing=false;
     if(!spinMode){
-      var startMs=i*ANIM_STAGGER;
-      var t=(elapsedMs-startMs)/ANIM_DUR;
-      t=Math.max(0,Math.min(1,t));
-      var eased=1-Math.pow(1-t,3);
-      opacity=eased;dy=(1-eased)*20;
+      var ts=typeSchedule&&typeSchedule.get(it);
+      if(ts){
+        var tt=(elapsedMs-ts.start)/ts.dur;
+        tt=Math.max(0,Math.min(1,tt));
+        revealChars=Math.round(tt*ts.full);
+        typing=tt<1&&elapsedMs>=ts.start;
+      }else{
+        var startMs=i*ANIM_STAGGER;
+        var t=(elapsedMs-startMs)/ANIM_DUR;
+        t=Math.max(0,Math.min(1,t));
+        var eased=1-Math.pow(1-t,3);
+        opacity=eased;dy=(1-eased)*20;
+      }
     }
     var rotOffset=0;
     if(it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1'){
       rotOffset=(elapsedMs/SPIN_PERIOD_MS)*2*Math.PI;
     }
-    state.set(it,{opacity:opacity,dy:dy,rotOffset:rotOffset});
+    state.set(it,{opacity:opacity,dy:dy,rotOffset:rotOffset,revealChars:revealChars,typing:typing});
   });
   return state;
 }
@@ -1502,9 +1543,17 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
     var el=slides[cur].el;
     var items=getAnimItems(el);
     var spinMode=hasSpinningSticker(items);
+    var typeSchedule=spinMode?null:buildTypeSchedule(items);
     var fullMs;
     if(spinMode){fullMs=SPIN_PERIOD_MS;}
-    else{var totalMs=items.length?(items.length-1)*ANIM_STAGGER+ANIM_DUR:0,HOLD=500;fullMs=totalMs+HOLD;}
+    else{
+      var fadeEnd=0;
+      items.forEach(function(it,i){
+        if(!(it.hasAttribute&&it.hasAttribute('data-edit')))fadeEnd=Math.max(fadeEnd,i*ANIM_STAGGER+ANIM_DUR);
+      });
+      var typeEnd=typeScheduleEndMs(typeSchedule);
+      var HOLD=500;fullMs=Math.max(fadeEnd,typeEnd)+HOLD;
+    }
     var w=540,h=el.classList.contains('f916')?960:675,ES=2;
     var mime=pickVideoMime();
     var capFn=null;
@@ -1526,7 +1575,7 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
     function tick(){
       var elapsed=performance.now()-t0;
       if(elapsed>=fullMs){recorder.stop();return;}
-      var anim=animStateAt(items,elapsed,spinMode);
+      var anim=animStateAt(items,elapsed,spinMode,typeSchedule);
       renderSlideCanvas(el,anim).then(function(canvas){
         rctx.clearRect(0,0,recCanvas.width,recCanvas.height);
         rctx.drawImage(canvas,0,0);
