@@ -1495,7 +1495,7 @@ function truncateVisibleText(root,maxChars,showCursor){
     cur.style.cssText='opacity:.75';root.appendChild(cur);
   }
 }
-function renderSlideCanvas(el,animState){
+function renderSlideCanvas(el,animState,videoFrameMap){
   return new Promise(function(resolve,reject){
     var w=540,h=el.classList.contains('f916')?960:675,ES=2;
     /* measure photos at natural size (works for detached slides too) */
@@ -1523,8 +1523,12 @@ function renderSlideCanvas(el,animState){
     });
     var vidsBelow=[],vidsAbove=[];
     el.querySelectorAll('.vidclip').forEach(function(vc){
-      var v=vc.querySelector('video');if(!v||!v.videoWidth)return;
-      var rec={video:v,x:vc.offsetLeft,y:vc.offsetTop,W:vc.offsetWidth,H:vc.offsetHeight};
+      var v=vc.querySelector('video');if(!v)return;
+      var override=videoFrameMap&&videoFrameMap.get(v);
+      var src=override||v;
+      var vw=override?override.width:v.videoWidth,vh=override?override.height:v.videoHeight;
+      if(!vw||!vh)return;
+      var rec={src:src,vw:vw,vh:vh,x:vc.offsetLeft,y:vc.offsetTop,W:vc.offsetWidth,H:vc.offsetHeight};
       (vc.dataset.layer==='below'?vidsBelow:vidsAbove).push(rec);
     });
     var origTexts=el.querySelectorAll('[data-edit]');
@@ -1570,10 +1574,9 @@ function renderSlideCanvas(el,animState){
         function drawVid(rec){
           ctx.save();
           ctx.fillStyle='#000';ctx.fillRect(rec.x,rec.y,rec.W,rec.H);
-          var vw=rec.video.videoWidth,vh=rec.video.videoHeight;
-          var scale=Math.min(rec.W/vw,rec.H/vh);
-          var dw=vw*scale,dh=vh*scale,dx=rec.x+(rec.W-dw)/2,dy=rec.y+(rec.H-dh)/2;
-          try{ctx.drawImage(rec.video,dx,dy,dw,dh);}catch(e){}
+          var scale=Math.min(rec.W/rec.vw,rec.H/rec.vh);
+          var dw=rec.vw*scale,dh=rec.vh*scale,dx=rec.x+(rec.W-dw)/2,dy=rec.y+(rec.H-dh)/2;
+          try{ctx.drawImage(rec.src,dx,dy,dw,dh);}catch(e){}
           ctx.restore();
         }
         stickersBelow.forEach(drawSticker);
@@ -1683,6 +1686,36 @@ function pickVideoMime(){
   return '';
 }
 function extFor(mime){return mime.indexOf('mp4')>=0?'mp4':'webm';}
+/* живая перемотка видео 24 раза в секунду во время записи ненадёжна на телефоне (декодер не успевает,
+   кадр застревает) — вместо этого один раз ЗАРАНЕЕ, до старта записи, прогоняем клип и сохраняем кадры
+   как ImageBitmap; во время самой записи просто берём готовый кадр по номеру — быстро и без гонки. */
+var PRERENDER_FPS=12,PRERENDER_MAX_FRAMES=120;
+function prerenderClipFrames(video){
+  return new Promise(function(resolve){
+    if(!video.duration||!isFinite(video.duration)||!video.videoWidth){resolve({frames:[],fps:PRERENDER_FPS});return;}
+    var total=Math.max(1,Math.min(PRERENDER_MAX_FRAMES,Math.ceil(video.duration*PRERENDER_FPS)));
+    var frames=[];
+    var tmp=document.createElement('canvas');tmp.width=video.videoWidth;tmp.height=video.videoHeight;
+    var tctx=tmp.getContext('2d');
+    var i=0;
+    function step(){
+      if(i>=total){resolve({frames:frames,fps:PRERENDER_FPS});return;}
+      var t=Math.min(Math.max(0,video.duration-0.02),i/PRERENDER_FPS);
+      var done=false;
+      function grab(){
+        if(done)return;done=true;video.removeEventListener('seeked',grab);
+        try{tctx.drawImage(video,0,0,tmp.width,tmp.height);}catch(e){}
+        (window.createImageBitmap?createImageBitmap(tmp):Promise.resolve(null)).then(function(bmp){
+          frames.push(bmp||null);i++;step();
+        })['catch'](function(){frames.push(null);i++;step();});
+      }
+      video.addEventListener('seeked',grab);
+      try{video.currentTime=t;}catch(e){grab();return;}
+      setTimeout(grab,150); /* подстраховка, если 'seeked' не пришло */
+    }
+    step();
+  });
+}
 var gifBtn=document.getElementById('exp-gif');
 if(gifBtn)gifBtn.addEventListener('click',function(){
   if(cur<0||!slides[cur])return;
@@ -1724,41 +1757,38 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
       recorder.onstop=function(){resolve(new Blob(chunks,{type:mime}));};
       recorder.onerror=function(e){reject(e.error||new Error('recorder error'));};
     });
-    /* живое автовоспроизведение клипа не синхронизировано с нашим циклом записи — на телефоне тяжёлый
-       synchronous-рендер каждого кадра может "забить" основной поток и остановить декодирование видео
-       (симптом — видео замирает на одном случайном кадре). Поэтому на время записи берём проигрывание
-       клипов под свой контроль: ставим на паузу и вручную перематываем на нужный момент КАЖДЫЙ кадр записи. */
+    /* живая перемотка/декод видео 24 раза в секунду ненадёжна на телефоне (декодер не успевает, кадр
+       застревает) — вместо этого заранее прогоняем клип целиком и сохраняем набор готовых кадров,
+       во время самой записи только подставляем нужный по номеру (быстро, без гонки с декодером). */
     var clipEls=Array.prototype.slice.call(el.querySelectorAll('.vidclip video'));
     clipEls.forEach(function(v){try{v.pause();}catch(_){}});
-    function seekClipsTo(ms){
-      if(!clipEls.length)return Promise.resolve();
-      return Promise.all(clipEls.map(function(v){
-        if(!v.duration||!isFinite(v.duration))return Promise.resolve();
-        var t=(ms/1000)%v.duration;
-        return new Promise(function(res){
-          var done=false;
-          function fin(){if(done)return;done=true;v.removeEventListener('seeked',fin);res();}
-          v.addEventListener('seeked',fin);
-          try{v.currentTime=t;}catch(_){fin();return;}
-          setTimeout(fin,120); /* подстраховка, если 'seeked' не пришло */
-        });
-      }));
-    }
     function resumeClips(){clipEls.forEach(function(v){v.play()['catch'](function(){});});}
-    recorder.start();
-    var t0=performance.now(),frameMs=1000/VIDEO_FPS;
-    function tick(){
-      var elapsed=performance.now()-t0;
-      if(elapsed>=fullMs){resumeClips();recorder.stop();return;}
-      var anim=animStateAt(items,elapsed,spinMode,typeSchedule);
-      seekClipsTo(elapsed).then(function(){return renderSlideCanvas(el,anim);}).then(function(canvas){
-        rctx.clearRect(0,0,recCanvas.width,recCanvas.height);
-        rctx.drawImage(canvas,0,0);
-        setTimeout(tick,frameMs);
-      })['catch'](function(){resumeClips();recorder.stop();});
-    }
-    tick();
-    return stopped.then(function(blob){return {blob:blob,mime:mime};});
+    return Promise.all(clipEls.map(function(v){return prerenderClipFrames(v).then(function(res){return {v:v,res:res};});})).then(function(prepared){
+      recorder.start();
+      var t0=performance.now(),frameMs=1000/VIDEO_FPS;
+      function tick(){
+        var elapsed=performance.now()-t0;
+        if(elapsed>=fullMs){resumeClips();recorder.stop();return;}
+        var anim=animStateAt(items,elapsed,spinMode,typeSchedule);
+        var videoFrameMap=new Map();
+        prepared.forEach(function(p){
+          if(!p.res.frames.length)return;
+          var idx=Math.floor((elapsed/1000)*p.res.fps)%p.res.frames.length;
+          var bmp=p.res.frames[idx];
+          if(bmp)videoFrameMap.set(p.v,bmp);
+        });
+        renderSlideCanvas(el,anim,videoFrameMap).then(function(canvas){
+          rctx.clearRect(0,0,recCanvas.width,recCanvas.height);
+          rctx.drawImage(canvas,0,0);
+          setTimeout(tick,frameMs);
+        })['catch'](function(){resumeClips();recorder.stop();});
+      }
+      tick();
+      return stopped.then(function(blob){
+        prepared.forEach(function(p){p.res.frames.forEach(function(bmp){if(bmp&&bmp.close)try{bmp.close();}catch(_){}});});
+        return {blob:blob,mime:mime};
+      });
+    });
   }).then(function(res){
     btn.disabled=false;btn.textContent=oldText;
     openVideoModal(res.blob,res.mime);
