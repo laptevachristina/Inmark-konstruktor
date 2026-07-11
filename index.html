@@ -86,6 +86,11 @@ em{font-style:italic}
 .tx-resize:before{content:'\2922';position:absolute;right:11px;bottom:11px;width:22px;height:22px;border-radius:999px;background:var(--sage);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px}
 [data-edit]:hover>.tx-resize,[data-edit]:focus>.tx-resize,[data-edit].moving>.tx-resize{display:block}
 .mini .tx-resize{display:none!important}
+.type-toggle{position:absolute;bottom:-22px;left:50%;margin-left:-22px;width:44px;height:44px;display:none;cursor:pointer;z-index:9;touch-action:none;user-select:none}
+.type-toggle:before{content:'→';position:absolute;left:11px;bottom:11px;width:22px;height:22px;border-radius:999px;background:var(--ui-panel-2);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+[data-edit]:hover>.type-toggle,[data-edit]:focus>.type-toggle,[data-edit].moving>.type-toggle{display:block}
+[data-edit].type-on .type-toggle:before{background:var(--sage)}
+.mini .type-toggle{display:none!important}
 
 /* free collage frames */
 .collage-canvas{position:absolute;inset:0;z-index:0}
@@ -1065,6 +1070,16 @@ function wireEditable(el){
   dl.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();});
   dl.addEventListener('pointerup',function(e){e.preventDefault();e.stopPropagation();if(el.parentNode)el.parentNode.removeChild(el);updateFilm();pushHistory();});
   var rz=el.querySelector(':scope>.tx-resize');if(!rz){rz=document.createElement('span');rz.className='tx-resize';rz.setAttribute('contenteditable','false');el.appendChild(rz);}
+  var tt=el.querySelector(':scope>.type-toggle');
+  if(!tt){tt=document.createElement('span');tt.className='type-toggle';tt.setAttribute('contenteditable','false');el.appendChild(tt);}
+  if(el.dataset.typeAnim==='1')el.classList.add('type-on');
+  tt.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();});
+  tt.addEventListener('pointerup',function(e){
+    e.preventDefault();e.stopPropagation();
+    var on=el.classList.toggle('type-on');
+    el.dataset.typeAnim=on?'1':'0';
+    pushHistory();
+  });
   (function(){var rsx,baseW,baseFont,resizing=false;
     rz.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();el.classList.add('moving');
       if(getComputedStyle(el).position!=='absolute'){var ol=el.offsetLeft,ot=el.offsetTop;el.style.position='absolute';el.style.left=ol+'px';el.style.top=ot+'px';el.style.margin='0';}
@@ -1096,7 +1111,7 @@ function wireEditable(el){
   h.addEventListener('pointerup',mup);h.addEventListener('pointercancel',mup);
   /* press-and-hold anywhere on the block => move it */
   el.addEventListener('pointerdown',function(e){
-    if(e.target.closest('.mv-handle')||e.target.closest('.mv-del')||e.target.closest('.tx-resize'))return;
+    if(e.target.closest('.mv-handle')||e.target.closest('.mv-del')||e.target.closest('.tx-resize')||e.target.closest('.type-toggle'))return;
     if(dragging)return;lpX=e.clientX;lpY=e.clientY;if(lpTimer)clearTimeout(lpTimer);
     lpTimer=setTimeout(function(){lpTimer=null;if(Object.keys(tp).length>=2)return;
       try{el.setPointerCapture(e.pointerId);}catch(_){}
@@ -1109,7 +1124,7 @@ function wireEditable(el){
   /* pinch-scale font size (two fingers on the text) */
   var tp={},sd,bf;
   el.addEventListener('pointerdown',function(e){
-    if(e.target.closest('.mv-handle')||e.target.closest('.mv-del'))return;
+    if(e.target.closest('.mv-handle')||e.target.closest('.mv-del')||e.target.closest('.type-toggle'))return;
     tp[e.pointerId]={x:e.clientX,y:e.clientY};
     if(Object.keys(tp).length===2){var k=Object.keys(tp),a=tp[k[0]],b=tp[k[1]];sd=Math.hypot(a.x-b.x,a.y-b.y);bf=parseFloat(getComputedStyle(el).fontSize)||20;e.preventDefault();}
   });
@@ -1409,7 +1424,7 @@ function renderSlideCanvas(el,animState){
     clone.style.transform='none';clone.style.boxShadow='none';clone.style.borderRadius='0';clone.style.background='transparent';
     var fontcss=document.getElementById('fontcss').textContent;
     var slidecss=document.getElementById('slidecss').textContent;
-    var extra=".ph-empty:before{content:''!important}.ph-label,.fr-label{display:none!important}.ph-pick,.gcell-move,.fr-del,.fr-resize,.fr-move,.mv-handle,.mv-del,.tx-resize,.snap-guide{display:none!important}.frame{outline:none!important;box-shadow:none!important;background:transparent!important}.photo{background:transparent!important}.ph-img{display:none!important}.slide{background:transparent!important}[data-edit]{box-shadow:none!important}.sticker{display:none!important}";
+    var extra=".ph-empty:before{content:''!important}.ph-label,.fr-label{display:none!important}.ph-pick,.gcell-move,.fr-del,.fr-resize,.fr-move,.mv-handle,.mv-del,.tx-resize,.type-toggle,.snap-guide{display:none!important}.frame{outline:none!important;box-shadow:none!important;background:transparent!important}.photo{background:transparent!important}.ph-img{display:none!important}.slide{background:transparent!important}[data-edit]{box-shadow:none!important}.sticker{display:none!important}";
     var xml=new XMLSerializer().serializeToString(clone);
     var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><style>'+fontcss+slidecss+extra+'</style><foreignObject x="0" y="0" width="'+w+'" height="'+h+'"><div xmlns="http://www.w3.org/1999/xhtml">'+xml+'</div></foreignObject></svg>';
     var overlay=new Image();
@@ -1487,11 +1502,13 @@ var ANIM_STAGGER=110,ANIM_DUR=480,SPIN_PERIOD_MS=8000;
 var TYPE_MS_PER_CHAR=55,TYPE_MIN_MS=350,TYPE_MAX_MS=2800,TYPE_GAP_MS=150;
 function getAnimItems(el){return Array.prototype.slice.call(el.querySelectorAll('[data-edit], .frame, [data-photo], .sticker'));}
 function hasSpinningSticker(items){return items.some(function(it){return it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1';});}
-/* text blocks type one after another (DOM order), photos/frames/stickers keep the old fade+slide timing */
+/* only text blocks explicitly marked via the → toggle (data-typeAnim='1') type letter-by-letter, one after another in DOM order;
+   everything else (unmarked text, photos, frames, stickers) keeps the old fade-in */
+function isTypedText(it){return !!(it.hasAttribute&&it.hasAttribute('data-edit')&&it.dataset.typeAnim==='1');}
 function buildTypeSchedule(items){
   var t=0,sched=new Map();
   items.forEach(function(it){
-    if(!(it.hasAttribute&&it.hasAttribute('data-edit')))return;
+    if(!isTypedText(it))return;
     var full=(it.textContent||'').length;
     var dur=Math.min(TYPE_MAX_MS,Math.max(TYPE_MIN_MS,full*TYPE_MS_PER_CHAR));
     sched.set(it,{start:t,dur:dur,full:full});
@@ -1549,7 +1566,7 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
     else{
       var fadeEnd=0;
       items.forEach(function(it,i){
-        if(!(it.hasAttribute&&it.hasAttribute('data-edit')))fadeEnd=Math.max(fadeEnd,i*ANIM_STAGGER+ANIM_DUR);
+        if(!isTypedText(it))fadeEnd=Math.max(fadeEnd,i*ANIM_STAGGER+ANIM_DUR);
       });
       var typeEnd=typeScheduleEndMs(typeSchedule);
       var HOLD=500;fullMs=Math.max(fadeEnd,typeEnd)+HOLD;
