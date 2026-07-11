@@ -114,14 +114,14 @@ em{font-style:italic}
 .sticker.sel .mv-handle,.sticker.sel .mv-del,.sticker.sel .tx-resize,.sticker.sel .rot-handle,.sticker.sel .spin-toggle,.sticker.sel .layer-toggle,.sticker.sel .copy-toggle{display:block}
 .sticker .rot-handle{position:absolute;top:-56px;left:50%;margin-left:-22px;width:44px;height:44px;cursor:grab;touch-action:none;z-index:10}
 .sticker .rot-handle:before{content:'↻';position:absolute;top:11px;left:11px;width:23px;height:23px;border-radius:999px;background:var(--sage);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px}
-.sticker .spin-toggle{position:absolute;bottom:-56px;left:50%;margin-left:-22px;width:44px;height:44px;cursor:pointer;touch-action:none;z-index:10}
-.sticker .spin-toggle:before{content:'🔄';position:absolute;top:11px;left:11px;width:23px;height:23px;border-radius:999px;background:var(--ui-panel-2);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:13px}
+.sticker .spin-toggle{position:absolute;bottom:-62px;left:50%;margin-left:-28px;width:56px;height:56px;cursor:pointer;touch-action:none;z-index:10}
+.sticker .spin-toggle:before{content:'🔄';position:absolute;top:17px;left:17px;width:23px;height:23px;border-radius:999px;background:var(--ui-panel-2);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:13px}
 .sticker.spin-on .spin-toggle:before{background:var(--sage)}
-.sticker .layer-toggle{position:absolute;bottom:-22px;left:-56px;width:44px;height:44px;cursor:pointer;touch-action:none;z-index:10}
-.sticker .layer-toggle:before{content:'⬆';position:absolute;top:11px;left:11px;width:23px;height:23px;border-radius:999px;background:var(--ui-panel-2);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+.sticker .layer-toggle{position:absolute;bottom:-28px;left:-62px;width:56px;height:56px;cursor:pointer;touch-action:none;z-index:10}
+.sticker .layer-toggle:before{content:'⬆';position:absolute;top:17px;left:17px;width:23px;height:23px;border-radius:999px;background:var(--ui-panel-2);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
 .sticker.layer-below .layer-toggle:before{content:'⬇';background:var(--sage)}
-.sticker .copy-toggle{position:absolute;top:50%;right:-56px;margin-top:-22px;width:44px;height:44px;cursor:pointer;touch-action:none;z-index:10}
-.sticker .copy-toggle:before{content:'⎘';position:absolute;top:11px;left:11px;width:23px;height:23px;border-radius:999px;background:var(--ui-panel-2);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
+.sticker .copy-toggle{position:absolute;top:50%;right:-62px;margin-top:-28px;width:56px;height:56px;cursor:pointer;touch-action:none;z-index:10}
+.sticker .copy-toggle:before{content:'⎘';position:absolute;top:17px;left:17px;width:23px;height:23px;border-radius:999px;background:var(--ui-panel-2);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
 .sticker.cutting{opacity:.45}
 .mini .sticker.sel{outline:none!important}
 .mini .sticker .mv-handle,.mini .sticker .mv-del,.mini .sticker .tx-resize,.mini .sticker .rot-handle{display:none!important}
@@ -840,7 +840,7 @@ function wireSticker(st){
     rot.addEventListener('pointerup',rotEnd);rot.addEventListener('pointercancel',rotEnd);
   }
   st.addEventListener('pointerdown',function(e){
-    if(e.target.closest('.rot-handle'))return;
+    if(e.target.closest('.rot-handle,.spin-toggle,.layer-toggle,.copy-toggle'))return;
     downX=e.clientX;downY=e.clientY;moved=false;
     selectSticker(st);
     if(e.target.closest('.mv-del')){return;}
@@ -1374,7 +1374,7 @@ function openModal(blobs){
   imgs.appendChild(top);
   blobs.forEach(function(blob,i){
     var wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;gap:8px;align-items:center';
-    var im=document.createElement('img');im.src=URL.createObjectURL(blob);im.style.maxHeight='68vh';
+    var im=document.createElement('img');im.src=URL.createObjectURL(blob);im.style.maxHeight='68vh';im.style.maxWidth='92vw';
     var b=document.createElement('button');b.className='hbtn';b.textContent=canPhoto?'Сохранить в Фото':'Скачать';
     b.addEventListener('click',function(){saveBlobs([blob]);});
     wrap.appendChild(im);wrap.appendChild(b);imgs.appendChild(wrap);
@@ -1399,14 +1399,11 @@ function hasSpinningSticker(items){return items.some(function(it){return it.clas
 function animStateAt(items,elapsedMs,spinMode){
   var state=new Map();
   items.forEach(function(it,i){
-    var opacity=1,dy=0;
-    if(!spinMode){
-      var startMs=i*ANIM_STAGGER;
-      var t=(elapsedMs-startMs)/ANIM_DUR;
-      t=Math.max(0,Math.min(1,t));
-      var eased=1-Math.pow(1-t,3);
-      opacity=eased;dy=(1-eased)*20;
-    }
+    var startMs=i*ANIM_STAGGER;
+    var t=(elapsedMs-startMs)/ANIM_DUR;
+    t=Math.max(0,Math.min(1,t));
+    var eased=1-Math.pow(1-t,3);
+    var opacity=eased,dy=(1-eased)*20;
     var rotOffset=0;
     if(it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1'){
       rotOffset=(elapsedMs/SPIN_PERIOD_MS)*2*Math.PI;
@@ -1466,7 +1463,7 @@ function openGifModal(blob){
   top.addEventListener('click',function(){var a=document.createElement('a');a.href=url;a.download='slide.gif';document.body.appendChild(a);a.click();a.remove();});
   imgs.appendChild(top);
   var wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;gap:8px;align-items:center';
-  var im=document.createElement('img');im.src=url;im.style.maxHeight='68vh';
+  var im=document.createElement('img');im.src=url;im.style.maxHeight='68vh';im.style.maxWidth='92vw';
   wrap.appendChild(im);imgs.appendChild(wrap);
   document.getElementById('modal').classList.add('open');
 }
