@@ -1692,10 +1692,11 @@ function extFor(mime){return mime.indexOf('mp4')>=0?'mp4':'webm';}
    (естественный, быстрый путь декодера) и ловим кадры на лету через requestVideoFrameCallback — время
    пре-рендера ограничено примерно длиной самого клипа, не может "убежать" в неопределённость. */
 var PRERENDER_FPS=12,PRERENDER_MAX_FRAMES=120;
-function prerenderClipFrames(video){
+function prerenderClipFrames(video,onProgress){
   return new Promise(function(resolve){
     if(!video.duration||!isFinite(video.duration)||!video.videoWidth){resolve({frames:[],fps:PRERENDER_FPS});return;}
     var frames=[],minGapMs=1000/PRERENDER_FPS,lastCapMs=-1e9,done=false;
+    function reportProgress(){if(onProgress)try{onProgress(Math.min(1,video.currentTime/video.duration));}catch(_){}}
     function capture(){
       if(frames.length>=PRERENDER_MAX_FRAMES)return;
       var c=document.createElement('canvas');c.width=video.videoWidth;c.height=video.videoHeight;
@@ -1706,6 +1707,7 @@ function prerenderClipFrames(video){
       if(done)return;done=true;
       video.removeEventListener('ended',finish);
       try{video.pause();}catch(_){}
+      if(onProgress)try{onProgress(1);}catch(_){}
       resolve({frames:frames,fps:PRERENDER_FPS});
     }
     video.addEventListener('ended',finish);
@@ -1713,7 +1715,7 @@ function prerenderClipFrames(video){
       function onFrame(now,meta){
         if(done)return;
         var mt=(meta&&meta.mediaTime||video.currentTime)*1000;
-        if(mt-lastCapMs>=minGapMs-4){lastCapMs=mt;capture();}
+        if(mt-lastCapMs>=minGapMs-4){lastCapMs=mt;capture();reportProgress();}
         if(video.currentTime>=video.duration-0.03||frames.length>=PRERENDER_MAX_FRAMES){finish();return;}
         video.requestVideoFrameCallback(onFrame);
       }
@@ -1725,7 +1727,7 @@ function prerenderClipFrames(video){
       try{video.currentTime=0;}catch(_){}
       var iv=setInterval(function(){
         if(done){clearInterval(iv);return;}
-        capture();
+        capture();reportProgress();
         if(video.currentTime>=video.duration-0.03||frames.length>=PRERENDER_MAX_FRAMES){clearInterval(iv);finish();}
       },minGapMs);
       video.play()['catch'](finish);
@@ -1785,12 +1787,24 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
     var clipEls=Array.prototype.slice.call(el.querySelectorAll('.vidclip video'));
     clipEls.forEach(function(v){try{v.pause();}catch(_){}});
     function resumeClips(){clipEls.forEach(function(v){v.play()['catch'](function(){});});}
-    return Promise.all(clipEls.map(function(v){return prerenderClipFrames(v).then(function(res){return {v:v,res:res};});})).then(function(prepared){
+    /* прогресс-индикатор на кнопке: 0-50% — подготовка кадров клипа (если он есть), 50-100% — сама запись.
+       Без клипа на слайде подготовка почти мгновенна, тогда просто крутится 0-100% на запись. */
+    var prepWeight=clipEls.length?0.5:0;
+    var prepFracs=clipEls.map(function(){return 0;});
+    function showProgress(frac){btn.textContent='⏳ '+Math.round(Math.max(0,Math.min(1,frac))*100)+'%';}
+    return Promise.all(clipEls.map(function(v,idx){
+      return prerenderClipFrames(v,function(f){
+        prepFracs[idx]=f;
+        var avg=prepFracs.reduce(function(a,b){return a+b;},0)/prepFracs.length;
+        showProgress(avg*prepWeight);
+      }).then(function(res){return {v:v,res:res};});
+    })).then(function(prepared){
       recorder.start();
       var t0=performance.now(),frameMs=1000/VIDEO_FPS;
       function tick(){
         var elapsed=performance.now()-t0;
         if(elapsed>=fullMs){resumeClips();recorder.stop();return;}
+        showProgress(prepWeight+Math.min(1,elapsed/fullMs)*(1-prepWeight));
         var anim=animStateAt(items,elapsed,spinMode,typeSchedule);
         var videoFrameMap=new Map();
         prepared.forEach(function(p){
