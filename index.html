@@ -1521,20 +1521,19 @@ function animStateAt(items,elapsedMs,spinMode,typeSchedule){
   var state=new Map();
   items.forEach(function(it,i){
     var opacity=1,dy=0,revealChars=null,typing=false;
-    if(!spinMode){
-      var ts=typeSchedule&&typeSchedule.get(it);
-      if(ts){
-        var tt=(elapsedMs-ts.start)/ts.dur;
-        tt=Math.max(0,Math.min(1,tt));
-        revealChars=Math.round(tt*ts.full);
-        typing=tt<1&&elapsedMs>=ts.start;
-      }else{
-        var startMs=i*ANIM_STAGGER;
-        var t=(elapsedMs-startMs)/ANIM_DUR;
-        t=Math.max(0,Math.min(1,t));
-        var eased=1-Math.pow(1-t,3);
-        opacity=eased;dy=0;
-      }
+    /* marked text keeps typing even while a sticker spins — только обычный fade+slide отключается в spin-режиме */
+    var ts=typeSchedule&&typeSchedule.get(it);
+    if(ts){
+      var tt=(elapsedMs-ts.start)/ts.dur;
+      tt=Math.max(0,Math.min(1,tt));
+      revealChars=Math.round(tt*ts.full);
+      typing=tt<1&&elapsedMs>=ts.start;
+    }else if(!spinMode){
+      var startMs=i*ANIM_STAGGER;
+      var t=(elapsedMs-startMs)/ANIM_DUR;
+      t=Math.max(0,Math.min(1,t));
+      var eased=1-Math.pow(1-t,3);
+      opacity=eased;dy=0;
     }
     var rotOffset=0;
     if(it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1'){
@@ -1560,7 +1559,7 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
     var el=slides[cur].el;
     var items=getAnimItems(el);
     var spinMode=hasSpinningSticker(items);
-    var typeSchedule=spinMode?null:buildTypeSchedule(items);
+    var typeSchedule=buildTypeSchedule(items);
     var fullMs;
     if(spinMode){fullMs=SPIN_PERIOD_MS;}
     else{
