@@ -1697,7 +1697,10 @@ function extFor(mime){return mime.indexOf('mp4')>=0?'mp4':'webm';}
    тяжело по памяти, и заметно "рвано" на глаз. Кадр в итоге всё равно рисуется уменьшенным в рамку
    клипа на слайде — нет смысла хранить больше пикселей, чем реально попадёт в кадр. Захват в размере
    рамки (не оригинала) освобождает бюджет памяти на бОльшее число кадров — то есть на бОльшую плавность. */
-var PRERENDER_FPS=20,PRERENDER_MAX_FRAMES=220;
+/* PRERENDER_FPS ровно равен VIDEO_FPS нарочно: если частота подготовленных кадров клипа не совпадает
+   с частотой самой записи, кадры повторяются НЕРАВНОМЕРНО (то 1 раз, то 2) — это само по себе выглядит
+   дёргано, отдельно от общей скорости. Одинаковый темп = ровный такт, без этого биения. */
+var PRERENDER_FPS=VIDEO_FPS,PRERENDER_MAX_FRAMES=260;
 function prerenderClipFrames(video,targetW,targetH,onProgress){
   return new Promise(function(resolve){
     if(!video.duration||!isFinite(video.duration)||!video.videoWidth){resolve({frames:[],fps:PRERENDER_FPS});return;}
