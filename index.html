@@ -1678,7 +1678,9 @@ function animStateAt(items,elapsedMs,spinMode,typeSchedule){
   });
   return state;
 }
-var VIDEO_FPS=24;
+var VIDEO_FPS=16; /* было 24 — на телефоне рендер кадра (SVG-текст+фото+видео вместе) не всегда укладывается
+  в 1000/24≈42мс бюджет, из-за этого реальная запись отставала от расчёта и выглядела рвано; 16фпс даёт
+  каждому кадру больше времени и всё ещё смотрится гладко для этого типа анимации (не быстрое движение) */
 function pickVideoMime(){
   if(!window.MediaRecorder||!MediaRecorder.isTypeSupported)return '';
   var cands=['video/mp4;codecs=avc1','video/mp4','video/webm;codecs=vp9','video/webm;codecs=vp8','video/webm'];
@@ -1809,9 +1811,20 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
     })).then(function(prepared){
       recorder.start();
       var t0=performance.now(),frameMs=1000/VIDEO_FPS;
+      /* защита от зависания: если рендер ОДНОГО кадра почему-то не отвечает — не ждём его вечно
+         (раньше именно так выглядело "видео зациклилось на одном кадре" — весь цикл tick() просто
+         замирал на зависшем renderSlideCanvas и больше никогда не рисовал следующий кадр) */
+      function withTimeout(promise,ms){
+        return new Promise(function(res,rej){
+          var settled=false;
+          var timer=setTimeout(function(){if(!settled){settled=true;rej(new Error('frame-timeout'));}},ms);
+          promise.then(function(v){if(!settled){settled=true;clearTimeout(timer);res(v);}},
+                       function(e){if(!settled){settled=true;clearTimeout(timer);rej(e);}});
+        });
+      }
       function tick(){
         var elapsed=performance.now()-t0;
-        if(elapsed>=fullMs){resumeClips();recorder.stop();return;}
+        if(elapsed>=fullMs||elapsed>fullMs+8000){resumeClips();recorder.stop();return;} /* +8с — жёсткий предохранитель */
         showProgress(prepWeight+Math.min(1,elapsed/fullMs)*(1-prepWeight));
         var anim=animStateAt(items,elapsed,spinMode,typeSchedule);
         var videoFrameMap=new Map();
@@ -1821,11 +1834,15 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
           var bmp=p.res.frames[idx];
           if(bmp)videoFrameMap.set(p.v,bmp);
         });
-        renderSlideCanvas(el,anim,videoFrameMap).then(function(canvas){
+        withTimeout(renderSlideCanvas(el,anim,videoFrameMap),1200).then(function(canvas){
           rctx.clearRect(0,0,recCanvas.width,recCanvas.height);
           rctx.drawImage(canvas,0,0);
           setTimeout(tick,frameMs);
-        })['catch'](function(){resumeClips();recorder.stop();});
+        })['catch'](function(){
+          /* зависший/сорвавшийся кадр — не бросаем всю запись, просто пропускаем этот кадр
+             (recCanvas останется с предыдущим кадром — не идеально, но лучше, чем полная остановка) */
+          setTimeout(tick,frameMs);
+        });
       }
       tick();
       return stopped.then(function(blob){
