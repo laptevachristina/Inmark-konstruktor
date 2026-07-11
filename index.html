@@ -1724,17 +1724,38 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
       recorder.onstop=function(){resolve(new Blob(chunks,{type:mime}));};
       recorder.onerror=function(e){reject(e.error||new Error('recorder error'));};
     });
+    /* живое автовоспроизведение клипа не синхронизировано с нашим циклом записи — на телефоне тяжёлый
+       synchronous-рендер каждого кадра может "забить" основной поток и остановить декодирование видео
+       (симптом — видео замирает на одном случайном кадре). Поэтому на время записи берём проигрывание
+       клипов под свой контроль: ставим на паузу и вручную перематываем на нужный момент КАЖДЫЙ кадр записи. */
+    var clipEls=Array.prototype.slice.call(el.querySelectorAll('.vidclip video'));
+    clipEls.forEach(function(v){try{v.pause();}catch(_){}});
+    function seekClipsTo(ms){
+      if(!clipEls.length)return Promise.resolve();
+      return Promise.all(clipEls.map(function(v){
+        if(!v.duration||!isFinite(v.duration))return Promise.resolve();
+        var t=(ms/1000)%v.duration;
+        return new Promise(function(res){
+          var done=false;
+          function fin(){if(done)return;done=true;v.removeEventListener('seeked',fin);res();}
+          v.addEventListener('seeked',fin);
+          try{v.currentTime=t;}catch(_){fin();return;}
+          setTimeout(fin,120); /* подстраховка, если 'seeked' не пришло */
+        });
+      }));
+    }
+    function resumeClips(){clipEls.forEach(function(v){v.play()['catch'](function(){});});}
     recorder.start();
     var t0=performance.now(),frameMs=1000/VIDEO_FPS;
     function tick(){
       var elapsed=performance.now()-t0;
-      if(elapsed>=fullMs){recorder.stop();return;}
+      if(elapsed>=fullMs){resumeClips();recorder.stop();return;}
       var anim=animStateAt(items,elapsed,spinMode,typeSchedule);
-      renderSlideCanvas(el,anim).then(function(canvas){
+      seekClipsTo(elapsed).then(function(){return renderSlideCanvas(el,anim);}).then(function(canvas){
         rctx.clearRect(0,0,recCanvas.width,recCanvas.height);
         rctx.drawImage(canvas,0,0);
         setTimeout(tick,frameMs);
-      });
+      })['catch'](function(){resumeClips();recorder.stop();});
     }
     tick();
     return stopped.then(function(blob){return {blob:blob,mime:mime};});
