@@ -326,6 +326,11 @@ header .logo b{color:var(--ui-acc);font-weight:700}
 <div class="swatches dd" id="textcolors"></div>
 <div class="txtmenu dd" id="txtmenu"><button data-k="h">Заголовок</button><button data-k="sub">Подзаголовок</button><button data-k="body">Обычный текст</button></div>
 <div class="txtmenu dd alnmenu" id="alnmenu"><button data-align="left">◧ Слева</button><button data-align="center">▣ По центру</button><button data-align="right">◨ Справа</button><button data-align="justify">▤ По ширине</button></div>
+<div class="swatches dd" id="cutSliderPanel" style="flex-direction:column;gap:10px;min-width:220px">
+  <div class="row-title">Жёсткость вырезания фона</div>
+  <input type="range" id="cutSliderInput" min="20" max="110" value="55" style="width:100%">
+  <button class="hbtn primary" id="cutSliderDone" style="align-self:flex-end">Готово</button>
+</div>
 <div class="modal" id="modal">
   <div class="mh">
     <button class="hbtn" id="modal-close">← Назад</button>
@@ -561,7 +566,48 @@ function selectSticker(st){
   document.querySelectorAll('.sticker.sel').forEach(function(s){if(s!==st)s.classList.remove('sel');});
   st.classList.add('sel');
 }
-function cutoutBackground(dataURL){
+var cutSliderTarget=null,cutSliderT=null;
+function openCutSlider(st,thr){
+  cutSliderTarget=st;
+  var panel=document.getElementById('cutSliderPanel'),input=document.getElementById('cutSliderInput');
+  if(!panel||!input)return;
+  input.value=thr;
+  panel.style.left='50%';panel.style.top='50%';panel.style.transform='translate(-50%,-50%)';
+  panel.classList.add('open');
+}
+function closeCutSlider(){
+  var panel=document.getElementById('cutSliderPanel');
+  if(panel)panel.classList.remove('open');
+  cutSliderTarget=null;
+}
+(function(){
+  var input=document.getElementById('cutSliderInput'),done=document.getElementById('cutSliderDone');
+  if(!input||!done)return;
+  input.addEventListener('input',function(){
+    if(!cutSliderTarget)return;
+    if(cutSliderT)clearTimeout(cutSliderT);
+    var st=cutSliderTarget,thr=parseFloat(input.value);
+    cutSliderT=setTimeout(function(){
+      var img=st.querySelector('img');if(!img||!st.dataset.origSrc)return;
+      st.classList.add('cutting');
+      cutoutBackground(st.dataset.origSrc,thr).then(function(res){
+        st.classList.remove('cutting');
+        if(!res)return;
+        var oldW=st.offsetWidth,oldH=st.offsetHeight,oldL=parseFloat(st.style.left)||0,oldT=parseFloat(st.style.top)||0;
+        var cx=oldL+oldW/2,cy=oldT+oldH/2,newW=oldW,newH=newW*(res.h/res.w);
+        st.style.left=(cx-newW/2)+'px';st.style.top=(cy-newH/2)+'px';
+        st.style.width=newW+'px';st.style.height=newH+'px';
+        img.src=res.url;
+        st.dataset.cutThreshold=String(thr);
+      });
+    },180);
+  });
+  done.addEventListener('click',function(){
+    if(cutSliderTarget)pushHistory();
+    closeCutSlider();
+  });
+})();
+function cutoutBackground(dataURL,threshold){
   return new Promise(function(resolve){
     var img=new Image();
     img.onload=function(){
@@ -578,7 +624,7 @@ function cutoutBackground(dataURL){
         for(var x=0;x<w;x++){addSample(x,0);addSample(x,h-1);}
         for(var y=0;y<h;y++){addSample(0,y);addSample(w-1,y);}
         var bgR=sumR/cnt,bgG=sumG/cnt,bgB=sumB/cnt;
-        var T=55;
+        var T=threshold||55;
         var isBg=new Uint8Array(w*h);
         for(var yy=0;yy<h;yy++){
           for(var xx=0;xx<w;xx++){
@@ -674,7 +720,7 @@ function addSticker(dataURL){
       var nw=res.w||200,nh=res.h||200;
       var targetW=Math.min(200,nw);var targetH=targetW*(nh/nw);
       var spot=findFreeSpot(slideEl,targetW,targetH);
-      var st=document.createElement('div');st.className='sticker';st.setAttribute('data-added','');st.dataset.rot='0';
+      var st=document.createElement('div');st.className='sticker';st.setAttribute('data-added','');st.dataset.rot='0';st.dataset.origSrc=res.url;
       st.style.left=spot.x+'px';st.style.top=spot.y+'px';st.style.width=targetW+'px';st.style.height=targetH+'px';st.style.zIndex='30';
       st.innerHTML='<img src="'+res.url+'" alt=""><span class="mv-handle"></span><span class="mv-del"></span><span class="tx-resize"></span><span class="rot-handle"></span>';
       slideEl.appendChild(st);
@@ -698,8 +744,10 @@ function wireSticker(st){
   function clearCutTimer(){if(cutTimer){clearTimeout(cutTimer);cutTimer=null;}}
   function triggerCutout(){
     var img=st.querySelector('img');if(!img)return;
+    if(!st.dataset.origSrc)st.dataset.origSrc=img.src;
     st.classList.add('cutting');
-    cutoutBackground(img.src).then(function(res){
+    var thr=parseFloat(st.dataset.cutThreshold)||55;
+    cutoutBackground(st.dataset.origSrc,thr).then(function(res){
       st.classList.remove('cutting');
       if(!res)return;
       var oldW=st.offsetWidth,oldH=st.offsetHeight,oldL=parseFloat(st.style.left)||0,oldT=parseFloat(st.style.top)||0;
@@ -707,7 +755,9 @@ function wireSticker(st){
       st.style.left=(cx-newW/2)+'px';st.style.top=(cy-newH/2)+'px';
       st.style.width=newW+'px';st.style.height=newH+'px';
       img.src=res.url;
+      st.dataset.cutThreshold=String(thr);
       updateFilm();pushHistory();
+      if(typeof openCutSlider==='function')openCutSlider(st,thr);
     });
   }
   if(rot){
