@@ -1691,16 +1691,22 @@ function extFor(mime){return mime.indexOf('mp4')>=0?'mp4':'webm';}
    растягивался на много секунд. Вместо перемоток — проигрываем клип ОДИН РАЗ ПОДРЯД в реальном времени
    (естественный, быстрый путь декодера) и ловим кадры на лету через requestVideoFrameCallback — время
    пре-рендера ограничено примерно длиной самого клипа, не может "убежать" в неопределённость. */
-var PRERENDER_FPS=12,PRERENDER_MAX_FRAMES=120;
-function prerenderClipFrames(video,onProgress){
+/* 12фпс и полное нативное разрешение исходника (может быть 1080×1920 с телефона) на кадр — это и
+   тяжело по памяти, и заметно "рвано" на глаз. Кадр в итоге всё равно рисуется уменьшенным в рамку
+   клипа на слайде — нет смысла хранить больше пикселей, чем реально попадёт в кадр. Захват в размере
+   рамки (не оригинала) освобождает бюджет памяти на бОльшее число кадров — то есть на бОльшую плавность. */
+var PRERENDER_FPS=20,PRERENDER_MAX_FRAMES=220;
+function prerenderClipFrames(video,targetW,targetH,onProgress){
   return new Promise(function(resolve){
     if(!video.duration||!isFinite(video.duration)||!video.videoWidth){resolve({frames:[],fps:PRERENDER_FPS});return;}
+    var cw=Math.max(2,Math.min(video.videoWidth,Math.round(targetW||video.videoWidth)));
+    var ch=Math.max(2,Math.min(video.videoHeight,Math.round(targetH||video.videoHeight)));
     var frames=[],minGapMs=1000/PRERENDER_FPS,lastCapMs=-1e9,done=false;
     function reportProgress(){if(onProgress)try{onProgress(Math.min(1,video.currentTime/video.duration));}catch(_){}}
     function capture(){
       if(frames.length>=PRERENDER_MAX_FRAMES)return;
-      var c=document.createElement('canvas');c.width=video.videoWidth;c.height=video.videoHeight;
-      try{c.getContext('2d').drawImage(video,0,0,c.width,c.height);}catch(e){}
+      var c=document.createElement('canvas');c.width=cw;c.height=ch;
+      try{c.getContext('2d').drawImage(video,0,0,cw,ch);}catch(e){}
       frames.push(c);
     }
     function finish(){
@@ -1793,7 +1799,9 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
     var prepFracs=clipEls.map(function(){return 0;});
     function showProgress(frac){btn.textContent='⏳ '+Math.round(Math.max(0,Math.min(1,frac))*100)+'%';}
     return Promise.all(clipEls.map(function(v,idx){
-      return prerenderClipFrames(v,function(f){
+      var vc=v.closest('.vidclip');
+      var targetW=(vc?vc.offsetWidth:180)*ES,targetH=(vc?vc.offsetHeight:320)*ES;
+      return prerenderClipFrames(v,targetW,targetH,function(f){
         prepFracs[idx]=f;
         var avg=prepFracs.reduce(function(a,b){return a+b;},0)/prepFracs.length;
         showProgress(avg*prepWeight);
