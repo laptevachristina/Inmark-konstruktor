@@ -1702,6 +1702,12 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
       var typeEnd=typeScheduleEndMs(typeSchedule);
       var HOLD=500;fullMs=Math.max(fadeEnd,typeEnd)+HOLD;
     }
+    /* если на слайде есть вставленный видео-клип — видео должно успеть проиграться целиком внутри записи */
+    var vidClipMs=0;
+    el.querySelectorAll('.vidclip video').forEach(function(v){
+      if(v.duration&&isFinite(v.duration))vidClipMs=Math.max(vidClipMs,v.duration*1000);
+    });
+    if(vidClipMs>fullMs)fullMs=vidClipMs;
     var w=540,h=el.classList.contains('f916')?960:675,ES=2;
     var mime=pickVideoMime();
     var capFn=null;
