@@ -1521,6 +1521,12 @@ function renderSlideCanvas(el,animState){
         opacity:a?a.opacity:1,dy:a?a.dy:0};
       (st.dataset.layer==='below'?stickersBelow:stickersAbove).push(rec);
     });
+    var vidsBelow=[],vidsAbove=[];
+    el.querySelectorAll('.vidclip').forEach(function(vc){
+      var v=vc.querySelector('video');if(!v||!v.videoWidth)return;
+      var rec={video:v,x:vc.offsetLeft,y:vc.offsetTop,W:vc.offsetWidth,H:vc.offsetHeight};
+      (vc.dataset.layer==='below'?vidsBelow:vidsAbove).push(rec);
+    });
     var origTexts=el.querySelectorAll('[data-edit]');
     var bg=bgColorOf(el),clone=el.cloneNode(true);
     if(animState){
@@ -1561,10 +1567,21 @@ function renderSlideCanvas(el,animState){
           ctx.drawImage(st.img,-st.W/2,-st.H/2,st.W,st.H);
           ctx.restore();
         }
+        function drawVid(rec){
+          ctx.save();
+          ctx.fillStyle='#000';ctx.fillRect(rec.x,rec.y,rec.W,rec.H);
+          var vw=rec.video.videoWidth,vh=rec.video.videoHeight;
+          var scale=Math.min(rec.W/vw,rec.H/vh);
+          var dw=vw*scale,dh=vh*scale,dx=rec.x+(rec.W-dw)/2,dy=rec.y+(rec.H-dh)/2;
+          try{ctx.drawImage(rec.video,dx,dy,dw,dh);}catch(e){}
+          ctx.restore();
+        }
         stickersBelow.forEach(drawSticker);
+        vidsBelow.forEach(drawVid);
         ctx.globalAlpha=1;
         ctx.drawImage(overlay,0,0,w,h);
         stickersAbove.forEach(drawSticker);
+        vidsAbove.forEach(drawVid);
         resolve(c);
       }catch(e){reject(e);}
     };
