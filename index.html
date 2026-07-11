@@ -1516,7 +1516,7 @@ function animStateAt(items,elapsedMs,spinMode,typeSchedule){
         var t=(elapsedMs-startMs)/ANIM_DUR;
         t=Math.max(0,Math.min(1,t));
         var eased=1-Math.pow(1-t,3);
-        opacity=eased;dy=(1-eased)*20;
+        opacity=eased;dy=0;
       }
     }
     var rotOffset=0;
