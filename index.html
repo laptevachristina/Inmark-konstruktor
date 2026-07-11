@@ -1469,7 +1469,7 @@ document.getElementById('exp-all').addEventListener('click',function(){
 });
 
 /* ---- animated GIF export (appear-in animation, current slide only) ---- */
-var ANIM_STAGGER=110,ANIM_DUR=480,SPIN_PERIOD_MS=4500;
+var ANIM_STAGGER=110,ANIM_DUR=480,SPIN_PERIOD_MS=8000;
 function getAnimItems(el){return Array.prototype.slice.call(el.querySelectorAll('[data-edit], .frame, [data-photo], .sticker'));}
 function hasSpinningSticker(items){return items.some(function(it){return it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1';});}
 function animStateAt(items,elapsedMs,spinMode){
@@ -1506,10 +1506,10 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
       var totalMs=items.length?(items.length-1)*ANIM_STAGGER+ANIM_DUR:0,HOLD=500;
       fullMs=totalMs+HOLD;nFrames=Math.max(1,Math.ceil(fullMs/frameMs));
     }
-    var w=540,h=el.classList.contains('f916')?960:675;
+    var w=540,h=el.classList.contains('f916')?960:675,ES=2;
     var workerBlob=new Blob([GIF_WORKER_SRC],{type:'application/javascript'});
     var workerURL=URL.createObjectURL(workerBlob);
-    var gif=new GIF({workers:2,quality:10,workerScript:workerURL,width:w,height:h});
+    var gif=new GIF({workers:2,quality:10,workerScript:workerURL,width:w*ES,height:h*ES});
     var chain=Promise.resolve();
     var _loop=function(i){
       chain=chain.then(function(){
