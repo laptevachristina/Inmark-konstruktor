@@ -1499,7 +1499,7 @@ document.getElementById('exp-all').addEventListener('click',function(){
 
 /* ---- animated GIF export (appear-in animation, current slide only) ---- */
 var ANIM_STAGGER=110,ANIM_DUR=480,SPIN_PERIOD_MS=8000;
-var TYPE_MS_PER_CHAR=55,TYPE_MIN_MS=350,TYPE_MAX_MS=2800,TYPE_GAP_MS=150;
+var TYPE_MS_PER_CHAR=95,TYPE_MIN_MS=450,TYPE_MAX_MS=4000,TYPE_GAP_MS=220;
 function getAnimItems(el){return Array.prototype.slice.call(el.querySelectorAll('[data-edit], .frame, [data-photo], .sticker'));}
 function hasSpinningSticker(items){return items.some(function(it){return it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1';});}
 /* only text blocks explicitly marked via the → toggle (data-typeAnim='1') type letter-by-letter, one after another in DOM order;
