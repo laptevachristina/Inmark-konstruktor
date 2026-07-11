@@ -68,6 +68,12 @@ em{font-style:italic}
 .photo.has-img .ph-pick{display:flex}
 .frame .ph-pick{display:flex}
 .ph-pick.ph-pick-wide{width:auto;height:30px;padding:0 12px;font-size:13px;font-weight:600;gap:5px}
+.gcell-move{position:absolute;top:4px;left:4px;width:44px;height:44px;display:none;cursor:grab;touch-action:none;z-index:5}
+.gcell-move:before{content:'✥';position:absolute;top:8px;left:8px;width:28px;height:28px;border-radius:999px;background:rgba(0,0,0,.55);box-shadow:0 1px 5px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}
+.photo.gcell.has-img .gcell-move{display:block}
+.mini .gcell-move{display:none!important}
+.gcell.gcell-dragging{opacity:.55}
+.gcell.gcell-drop-target{outline:3px solid var(--sage);outline-offset:-3px}
 .mini .ph-pick{display:none!important}
 .mv-handle{position:absolute;top:-22px;right:-22px;width:44px;height:44px;display:none;cursor:move;z-index:8;touch-action:none;user-select:none}
 .mv-handle:before{content:'✥';position:absolute;top:11px;right:11px;width:23px;height:23px;border-radius:999px;background:var(--sage);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px}
@@ -546,7 +552,62 @@ function enhancePhoto(p){
   p.insertBefore(img,p.firstChild);
   var pick=document.createElement('button');pick.type='button';pick.title='Заменить фото';if(p.classList.contains('cover-photo')){pick.className='ph-pick ph-pick-wide';pick.textContent='＋ Заменить фото';}else{pick.className='ph-pick';pick.textContent='＋';}
   p.appendChild(pick);
+  if(p.classList.contains('gcell')){
+    var mv=document.createElement('span');mv.className='gcell-move';mv.title='Перетащи на другое фото — поменяются местами';
+    p.appendChild(mv);
+  }
   if(p.dataset.scale===undefined){p.dataset.scale=1;p.dataset.x=0;p.dataset.y=0;}
+}
+function swapGcell(a,b){
+  var ia=a.querySelector('.ph-img'),ib=b.querySelector('.ph-img');
+  var srcA=ia.getAttribute('src')||'',srcB=ib.getAttribute('src')||'';
+  var hasA=a.classList.contains('has-img'),hasB=b.classList.contains('has-img');
+  var sA=a.dataset.scale,xA=a.dataset.x,yA=a.dataset.y,sB=b.dataset.scale,xB=b.dataset.x,yB=b.dataset.y;
+  if(srcB)ia.src=srcB;else ia.removeAttribute('src');
+  if(srcA)ib.src=srcA;else ib.removeAttribute('src');
+  ia.style.display=hasB?'block':'none';
+  ib.style.display=hasA?'block':'none';
+  a.classList.toggle('has-img',hasB);b.classList.toggle('has-img',hasA);
+  a.dataset.scale=sB;a.dataset.x=xB;a.dataset.y=yB;
+  b.dataset.scale=sA;b.dataset.x=xA;b.dataset.y=yA;
+  applyTransform(a);applyTransform(b);
+}
+function wireGcellMove(p){
+  var mv=p.querySelector(':scope>.gcell-move');if(!mv)return;
+  var dragging=false,curTarget=null;
+  mv.addEventListener('pointerdown',function(e){
+    if(!p.classList.contains('has-img'))return;
+    e.preventDefault();e.stopPropagation();
+    dragging=true;curTarget=null;
+    try{mv.setPointerCapture(e.pointerId);}catch(_){}
+    p.classList.add('gcell-dragging');
+  });
+  mv.addEventListener('pointermove',function(e){
+    if(!dragging)return;
+    e.preventDefault();
+    var el=document.elementFromPoint(e.clientX,e.clientY);
+    var cell=el&&el.closest?el.closest('.gcell'):null;
+    if(cell&&cell.closest('.fixed-grid')!==p.closest('.fixed-grid'))cell=null;
+    if(cell===p)cell=null;
+    if(cell!==curTarget){
+      if(curTarget)curTarget.classList.remove('gcell-drop-target');
+      curTarget=cell;
+      if(curTarget)curTarget.classList.add('gcell-drop-target');
+    }
+  });
+  function endDrag(){
+    if(!dragging)return;
+    dragging=false;
+    p.classList.remove('gcell-dragging');
+    if(curTarget){
+      curTarget.classList.remove('gcell-drop-target');
+      swapGcell(p,curTarget);
+      updateFilm();pushHistory();
+    }
+    curTarget=null;
+  }
+  mv.addEventListener('pointerup',endDrag);
+  mv.addEventListener('pointercancel',endDrag);
 }
 function applyTransform(p){
   var img=p.querySelector('.ph-img');if(!img)return;
@@ -767,6 +828,18 @@ function duplicateSticker(orig){
   updateFilm();pushHistory();
   return st;
 }
+function updateStickerLayerDOM(st){
+  var slideEl=st.parentNode;if(!slideEl)return;
+  if(st.dataset.layer==='below'){
+    st.style.zIndex='';
+    var pad=slideEl.querySelector(':scope>.pad');
+    if(pad&&pad.parentNode===slideEl)slideEl.insertBefore(st,pad);
+    else slideEl.appendChild(st);
+  }else{
+    st.style.zIndex='30';
+    slideEl.appendChild(st);
+  }
+}
 function wireSticker(st){
   if(st.__w)return;st.__w=1;
   if(st.dataset.rot===undefined)st.dataset.rot='0';
@@ -783,11 +856,13 @@ function wireSticker(st){
   }
   if(layerToggle){
     if(st.dataset.layer==='below')st.classList.add('layer-below');
+    updateStickerLayerDOM(st);
     layerToggle.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();});
     layerToggle.addEventListener('pointerup',function(e){
       e.preventDefault();e.stopPropagation();
       var below=st.classList.toggle('layer-below');
       st.dataset.layer=below?'below':'above';
+      updateStickerLayerDOM(st);
       updateFilm();pushHistory();
     });
   }
@@ -896,6 +971,7 @@ function wirePhoto(p){
   if(p.__w)return;p.__w=1;
   enhancePhoto(p);applyTransform(p);
   wirePanZoom(p);
+  if(p.classList.contains('gcell'))wireGcellMove(p);
   p.addEventListener('dragover',function(e){e.preventDefault();p.classList.add('drag');});
   p.addEventListener('dragleave',function(){p.classList.remove('drag');});
   p.addEventListener('drop',function(e){e.preventDefault();p.classList.remove('drag');var f=e.dataTransfer.files[0];if(f)setPhoto(p,f);});
@@ -904,7 +980,7 @@ function wirePanZoom(p){
   var pointers={},startX,startY,baseX,baseY,startDist,baseScale,downX,downY,moved;
   p.addEventListener('pointerdown',function(e){
     downX=e.clientX;downY=e.clientY;moved=false;
-    if(e.target.closest('.ph-pick'))return;               // pick handled on tap (pointerup)
+    if(e.target.closest('.ph-pick,.gcell-move'))return;   // pick/move handled by their own handlers
     if(!p.classList.contains('has-img'))return;           // empty → wait for tap
     try{p.setPointerCapture(e.pointerId);}catch(_){}
     pointers[e.pointerId]={x:e.clientX,y:e.clientY};
@@ -1319,7 +1395,7 @@ function renderSlideCanvas(el,animState){
     clone.style.transform='none';clone.style.boxShadow='none';clone.style.borderRadius='0';clone.style.background='transparent';
     var fontcss=document.getElementById('fontcss').textContent;
     var slidecss=document.getElementById('slidecss').textContent;
-    var extra=".ph-empty:before{content:''!important}.ph-label,.fr-label{display:none!important}.ph-pick,.fr-del,.fr-resize,.fr-move,.mv-handle,.mv-del,.tx-resize,.snap-guide{display:none!important}.frame{outline:none!important;box-shadow:none!important;background:transparent!important}.photo{background:transparent!important}.ph-img{display:none!important}.slide{background:transparent!important}[data-edit]{box-shadow:none!important}.sticker{display:none!important}";
+    var extra=".ph-empty:before{content:''!important}.ph-label,.fr-label{display:none!important}.ph-pick,.gcell-move,.fr-del,.fr-resize,.fr-move,.mv-handle,.mv-del,.tx-resize,.snap-guide{display:none!important}.frame{outline:none!important;box-shadow:none!important;background:transparent!important}.photo{background:transparent!important}.ph-img{display:none!important}.slide{background:transparent!important}[data-edit]{box-shadow:none!important}.sticker{display:none!important}";
     var xml=new XMLSerializer().serializeToString(clone);
     var svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'"><style>'+fontcss+slidecss+extra+'</style><foreignObject x="0" y="0" width="'+w+'" height="'+h+'"><div xmlns="http://www.w3.org/1999/xhtml">'+xml+'</div></foreignObject></svg>';
     var overlay=new Image();
@@ -1393,17 +1469,20 @@ document.getElementById('exp-all').addEventListener('click',function(){
 });
 
 /* ---- animated GIF export (appear-in animation, current slide only) ---- */
-var ANIM_STAGGER=110,ANIM_DUR=480,SPIN_PERIOD_MS=2000;
+var ANIM_STAGGER=110,ANIM_DUR=480,SPIN_PERIOD_MS=4500;
 function getAnimItems(el){return Array.prototype.slice.call(el.querySelectorAll('[data-edit], .frame, [data-photo], .sticker'));}
 function hasSpinningSticker(items){return items.some(function(it){return it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1';});}
 function animStateAt(items,elapsedMs,spinMode){
   var state=new Map();
   items.forEach(function(it,i){
-    var startMs=i*ANIM_STAGGER;
-    var t=(elapsedMs-startMs)/ANIM_DUR;
-    t=Math.max(0,Math.min(1,t));
-    var eased=1-Math.pow(1-t,3);
-    var opacity=eased,dy=(1-eased)*20;
+    var opacity=1,dy=0;
+    if(!spinMode){
+      var startMs=i*ANIM_STAGGER;
+      var t=(elapsedMs-startMs)/ANIM_DUR;
+      t=Math.max(0,Math.min(1,t));
+      var eased=1-Math.pow(1-t,3);
+      opacity=eased;dy=(1-eased)*20;
+    }
     var rotOffset=0;
     if(it.classList&&it.classList.contains('sticker')&&it.dataset.spin==='1'){
       rotOffset=(elapsedMs/SPIN_PERIOD_MS)*2*Math.PI;
