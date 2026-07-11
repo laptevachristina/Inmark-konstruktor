@@ -1602,9 +1602,15 @@ function openVideoModal(blob,mime){
   imgs.appendChild(top);
   var wrap=document.createElement('div');wrap.style.cssText='display:flex;flex-direction:column;gap:8px;align-items:center';
   var vid=document.createElement('video');vid.src=url;vid.style.maxHeight='68vh';vid.style.maxWidth='92vw';
-  vid.autoplay=true;vid.loop=true;vid.muted=true;vid.playsInline=true;vid.controls=true;
-  /* iOS Safari иногда не перематывает blob-видео сам на loop и застревает на последнем кадре — перезапускаем вручную */
-  vid.addEventListener('ended',function(){vid.currentTime=0;vid.play()['catch'](function(){});});
+  /* loop=false нарочно: с нативным loop=true iOS Safari на blob-видео (наша запись) не всегда шлёт 'ended' и зависает на
+     последнем кадре, так и не перемотавшись — перезапускаем цикл сами, чтобы 'ended' точно срабатывал */
+  vid.autoplay=true;vid.loop=false;vid.muted=true;vid.playsInline=true;vid.controls=true;
+  function restartLoop(){vid.currentTime=0;vid.play()['catch'](function(){});}
+  vid.addEventListener('ended',restartLoop);
+  /* подстраховка: если у blob-видео метаданные подпорчены и 'ended' вовсе не приходит — досматриваем по currentTime */
+  vid.addEventListener('timeupdate',function(){
+    if(vid.duration&&isFinite(vid.duration)&&vid.currentTime>=vid.duration-0.15)restartLoop();
+  });
   wrap.appendChild(vid);imgs.appendChild(wrap);
   document.getElementById('modal').classList.add('open');
 }
