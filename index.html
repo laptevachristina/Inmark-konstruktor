@@ -1686,39 +1686,61 @@ function pickVideoMime(){
   return '';
 }
 function extFor(mime){return mime.indexOf('mp4')>=0?'mp4':'webm';}
-/* живая перемотка видео 24 раза в секунду во время записи ненадёжна на телефоне (декодер не успевает,
-   кадр застревает) — вместо этого один раз ЗАРАНЕЕ, до старта записи, прогоняем клип и сохраняем кадры
-   как ImageBitmap; во время самой записи просто берём готовый кадр по номеру — быстро и без гонки. */
+/* Частая перемотка (много currentTime= подряд с ожиданием 'seeked') оказалась ненадёжной и МЕДЛЕННОЙ
+   на телефоне — decoder не поспевал, ожидание срывалось в таймаут почти на каждом кадре, весь пре-рендер
+   растягивался на много секунд. Вместо перемоток — проигрываем клип ОДИН РАЗ ПОДРЯД в реальном времени
+   (естественный, быстрый путь декодера) и ловим кадры на лету через requestVideoFrameCallback — время
+   пре-рендера ограничено примерно длиной самого клипа, не может "убежать" в неопределённость. */
 var PRERENDER_FPS=12,PRERENDER_MAX_FRAMES=120;
 function prerenderClipFrames(video){
   return new Promise(function(resolve){
     if(!video.duration||!isFinite(video.duration)||!video.videoWidth){resolve({frames:[],fps:PRERENDER_FPS});return;}
-    var total=Math.max(1,Math.min(PRERENDER_MAX_FRAMES,Math.ceil(video.duration*PRERENDER_FPS)));
-    var frames=[];
-    var tmp=document.createElement('canvas');tmp.width=video.videoWidth;tmp.height=video.videoHeight;
-    var tctx=tmp.getContext('2d');
-    var i=0;
-    function step(){
-      if(i>=total){resolve({frames:frames,fps:PRERENDER_FPS});return;}
-      var t=Math.min(Math.max(0,video.duration-0.02),i/PRERENDER_FPS);
-      var done=false;
-      function grab(){
-        if(done)return;done=true;video.removeEventListener('seeked',grab);
-        try{tctx.drawImage(video,0,0,tmp.width,tmp.height);}catch(e){}
-        (window.createImageBitmap?createImageBitmap(tmp):Promise.resolve(null)).then(function(bmp){
-          frames.push(bmp||null);i++;step();
-        })['catch'](function(){frames.push(null);i++;step();});
-      }
-      video.addEventListener('seeked',grab);
-      try{video.currentTime=t;}catch(e){grab();return;}
-      setTimeout(grab,150); /* подстраховка, если 'seeked' не пришло */
+    var frames=[],minGapMs=1000/PRERENDER_FPS,lastCapMs=-1e9,done=false;
+    function capture(){
+      if(frames.length>=PRERENDER_MAX_FRAMES)return;
+      var c=document.createElement('canvas');c.width=video.videoWidth;c.height=video.videoHeight;
+      try{c.getContext('2d').drawImage(video,0,0,c.width,c.height);}catch(e){}
+      frames.push(c);
     }
-    step();
+    function finish(){
+      if(done)return;done=true;
+      video.removeEventListener('ended',finish);
+      try{video.pause();}catch(_){}
+      resolve({frames:frames,fps:PRERENDER_FPS});
+    }
+    video.addEventListener('ended',finish);
+    if(video.requestVideoFrameCallback){
+      function onFrame(now,meta){
+        if(done)return;
+        var mt=(meta&&meta.mediaTime||video.currentTime)*1000;
+        if(mt-lastCapMs>=minGapMs-4){lastCapMs=mt;capture();}
+        if(video.currentTime>=video.duration-0.03||frames.length>=PRERENDER_MAX_FRAMES){finish();return;}
+        video.requestVideoFrameCallback(onFrame);
+      }
+      try{video.currentTime=0;}catch(_){}
+      video.requestVideoFrameCallback(onFrame);
+      video.play()['catch'](finish);
+    }else{
+      /* фолбэк для браузеров без requestVideoFrameCallback — таймер по wall-clock, грубее, но работает везде */
+      try{video.currentTime=0;}catch(_){}
+      var iv=setInterval(function(){
+        if(done){clearInterval(iv);return;}
+        capture();
+        if(video.currentTime>=video.duration-0.03||frames.length>=PRERENDER_MAX_FRAMES){clearInterval(iv);finish();}
+      },minGapMs);
+      video.play()['catch'](finish);
+    }
+    setTimeout(finish,Math.min(20000,video.duration*1000+3000)); /* жёсткая подстраховка — не дольше длины клипа+3с */
   });
 }
 var gifBtn=document.getElementById('exp-gif');
+var videoExportBusy=false;
 if(gifBtn)gifBtn.addEventListener('click',function(){
+  /* защита от повторного тапа, пока идёт пре-рендер/запись — раньше второй тап во время подготовки
+     запускал ВТОРОЙ параллельный процесс поверх первого и вешал вкладку (белый экран) */
+  if(videoExportBusy)return;
   if(cur<0||!slides[cur])return;
+  videoExportBusy=true;
   var btn=gifBtn,oldText=btn.textContent;btn.disabled=true;btn.textContent='⏳ …';
   document.fonts.ready.then(function(){
     var el=slides[cur].el;
@@ -1785,15 +1807,15 @@ if(gifBtn)gifBtn.addEventListener('click',function(){
       }
       tick();
       return stopped.then(function(blob){
-        prepared.forEach(function(p){p.res.frames.forEach(function(bmp){if(bmp&&bmp.close)try{bmp.close();}catch(_){}});});
+        prepared.forEach(function(p){p.res.frames.length=0;}); /* отпускаем ссылки на кадры-canvas'ы, чтобы GC забрал память */
         return {blob:blob,mime:mime};
       });
     });
   }).then(function(res){
-    btn.disabled=false;btn.textContent=oldText;
+    videoExportBusy=false;btn.disabled=false;btn.textContent=oldText;
     openVideoModal(res.blob,res.mime);
   }).catch(function(e){
-    btn.disabled=false;btn.textContent=oldText;
+    videoExportBusy=false;btn.disabled=false;btn.textContent=oldText;
     alert('Не получилось собрать видео — напиши мне, поправим.');
   });
 });
