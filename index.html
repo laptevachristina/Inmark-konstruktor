@@ -139,11 +139,14 @@ em{font-style:italic}
 
 .vidclip{position:absolute;touch-action:none;cursor:move}
 .vidclip video{width:100%;height:100%;object-fit:contain;background:#000;pointer-events:none;display:block}
-.vidclip .mv-handle,.vidclip .mv-del,.vidclip .tx-resize{display:none}
+.vidclip .mv-handle,.vidclip .mv-del,.vidclip .tx-resize,.vidclip .layer-toggle{display:none}
 .vidclip.sel{outline:2px dashed var(--sage);outline-offset:6px}
-.vidclip.sel .mv-handle,.vidclip.sel .mv-del,.vidclip.sel .tx-resize{display:block}
+.vidclip.sel .mv-handle,.vidclip.sel .mv-del,.vidclip.sel .tx-resize,.vidclip.sel .layer-toggle{display:block}
+.vidclip .layer-toggle{position:absolute;bottom:-28px;left:-62px;width:56px;height:56px;cursor:pointer;touch-action:none;z-index:10}
+.vidclip .layer-toggle:before{content:'⬆';position:absolute;top:17px;left:17px;width:23px;height:23px;border-radius:999px;background:var(--ui-panel-2);box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px}
+.vidclip.layer-below .layer-toggle:before{content:'⬇';background:var(--sage)}
 .mini .vidclip.sel{outline:none!important}
-.mini .vidclip .mv-handle,.mini .vidclip .mv-del,.mini .vidclip .tx-resize{display:none!important}
+.mini .vidclip .mv-handle,.mini .vidclip .mv-del,.mini .vidclip .tx-resize,.mini .vidclip .layer-toggle{display:none!important}
 
 .cover-photo{position:absolute;inset:0;border-radius:0}
 .cover-scrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(to top,rgba(0,0,0,.6) 3%,rgba(0,0,0,.12) 40%,rgba(0,0,0,0) 65%)}
@@ -839,7 +842,7 @@ function duplicateSticker(orig){
   updateFilm();pushHistory();
   return st;
 }
-function updateStickerLayerDOM(st){
+function updateLayerDOM(st){
   var slideEl=st.parentNode;if(!slideEl)return;
   if(st.dataset.layer==='below'){
     st.style.zIndex='';
@@ -867,13 +870,13 @@ function wireSticker(st){
   }
   if(layerToggle){
     if(st.dataset.layer==='below')st.classList.add('layer-below');
-    updateStickerLayerDOM(st);
+    updateLayerDOM(st);
     layerToggle.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();});
     layerToggle.addEventListener('pointerup',function(e){
       e.preventDefault();e.stopPropagation();
       var below=st.classList.toggle('layer-below');
       st.dataset.layer=below?'below':'above';
-      updateStickerLayerDOM(st);
+      updateLayerDOM(st);
       updateFilm();pushHistory();
     });
   }
@@ -976,9 +979,9 @@ function addVideoClip(file){
   idbPut('vidblob_'+id,file).then(function(){
     var targetW=180,targetH=320; /* 9:16 по умолчанию — дальше человек сам меняет размер ручкой-уголком */
     var spot=findFreeSpot(slideEl,targetW,targetH);
-    var vc=document.createElement('div');vc.className='vidclip';vc.setAttribute('data-added','');vc.dataset.vidId=id;
+    var vc=document.createElement('div');vc.className='vidclip';vc.setAttribute('data-added','');vc.dataset.vidId=id;vc.dataset.layer='above';
     vc.style.left=spot.x+'px';vc.style.top=spot.y+'px';vc.style.width=targetW+'px';vc.style.height=targetH+'px';vc.style.zIndex='30';
-    vc.innerHTML='<video muted loop autoplay playsinline></video><span class="mv-handle"></span><span class="mv-del"></span><span class="tx-resize"></span>';
+    vc.innerHTML='<video muted loop autoplay playsinline></video><span class="mv-handle"></span><span class="mv-del"></span><span class="tx-resize"></span><span class="layer-toggle"></span>';
     slideEl.appendChild(vc);
     wireVideoClip(vc);
     selectVideoClip(vc);
@@ -1002,7 +1005,10 @@ function selectVideoClip(vc){
 function wireVideoClip(vc){
   if(vc.__w)return;vc.__w=1;
   hydrateVideoClip(vc);
-  var dl=vc.querySelector(':scope>.mv-del');
+  if(!vc.dataset.layer)vc.dataset.layer='above';
+  if(vc.dataset.layer==='below')vc.classList.add('layer-below');
+  updateLayerDOM(vc);
+  var dl=vc.querySelector(':scope>.mv-del'),layerToggle=vc.querySelector(':scope>.layer-toggle');
   dl.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();});
   dl.addEventListener('pointerup',function(e){
     e.preventDefault();e.stopPropagation();
@@ -1013,31 +1019,50 @@ function wireVideoClip(vc){
     if(vc.parentNode)vc.parentNode.removeChild(vc);
     updateFilm();pushHistory();
   });
-  var pointers={},mode=null,sx,sy,bl,bt,baseW,baseH,downX,downY,moved;
+  if(layerToggle){
+    layerToggle.addEventListener('pointerdown',function(e){e.preventDefault();e.stopPropagation();});
+    layerToggle.addEventListener('pointerup',function(e){
+      e.preventDefault();e.stopPropagation();
+      var below=vc.classList.toggle('layer-below');
+      vc.dataset.layer=below?'below':'above';
+      updateLayerDOM(vc);
+      updateFilm();pushHistory();
+    });
+  }
+  var pointers={},mode=null,sx,sy,bl,bt,baseW,baseH,startDist,downX,downY,moved;
   function startMove(e){sx=e.clientX;sy=e.clientY;bl=parseFloat(vc.style.left)||0;bt=parseFloat(vc.style.top)||0;mode='move';}
   function startResize(e){sx=e.clientX;sy=e.clientY;baseW=vc.offsetWidth;baseH=vc.offsetHeight;mode='resize';}
   vc.addEventListener('pointerdown',function(e){
-    if(e.target.closest('.mv-del'))return;
+    if(e.target.closest('.mv-del')||e.target.closest('.layer-toggle'))return;
     downX=e.clientX;downY=e.clientY;moved=false;
     selectVideoClip(vc);
     try{vc.setPointerCapture(e.pointerId);}catch(_){}
     pointers[e.pointerId]={x:e.clientX,y:e.clientY};
+    var ids=Object.keys(pointers);
     if(e.target.closest('.tx-resize')){startResize(e);}
+    else if(ids.length===2){var a=pointers[ids[0]],b=pointers[ids[1]];mode='pinch';startDist=Math.hypot(a.x-b.x,a.y-b.y);baseW=vc.offsetWidth;baseH=vc.offsetHeight;}
     else{startMove(e);}
     e.preventDefault();e.stopPropagation();
   });
   vc.addEventListener('pointermove',function(e){
     if(Math.abs(e.clientX-downX)+Math.abs(e.clientY-downY)>6)moved=true;
-    if(!pointers[e.pointerId])return;
+    if(!pointers[e.pointerId]&&mode!=='move'&&mode!=='resize'&&mode!=='pinch')return;
     pointers[e.pointerId]={x:e.clientX,y:e.clientY};
-    var sc=curFitScale||1;
-    if(mode==='resize'&&moved){var ratio=Math.max(0.15,(baseW+((e.clientX-sx)/sc))/baseW);vc.style.width=Math.max(30,baseW*ratio)+'px';vc.style.height=Math.max(30,baseH*ratio)+'px';}
+    var sc=curFitScale||1,ids=Object.keys(pointers);
+    if(mode==='pinch'&&ids.length>=2){
+      var a=pointers[ids[0]],b=pointers[ids[1]];
+      var d=Math.hypot(a.x-b.x,a.y-b.y);
+      if(startDist){var ratio=d/startDist;vc.style.width=Math.max(30,baseW*ratio)+'px';vc.style.height=Math.max(30,baseH*ratio)+'px';}
+      moved=true;
+    }
+    else if(mode==='resize'&&moved){var ratio2=Math.max(0.15,(baseW+((e.clientX-sx)/sc))/baseW);vc.style.width=Math.max(30,baseW*ratio2)+'px';vc.style.height=Math.max(30,baseH*ratio2)+'px';}
     else if(mode==='move'&&moved){vc.style.left=(bl+(e.clientX-sx)/sc)+'px';vc.style.top=(bt+(e.clientY-sy)/sc)+'px';}
     e.preventDefault();
   });
   function up(e){
     delete pointers[e.pointerId];
     if(Object.keys(pointers).length===0){if(mode&&moved){updateFilm();pushHistory();}mode=null;}
+    else if(mode==='pinch'&&Object.keys(pointers).length===1){var k=Object.keys(pointers)[0];mode='move';sx=pointers[k].x;sy=pointers[k].y;bl=parseFloat(vc.style.left)||0;bt=parseFloat(vc.style.top)||0;}
   }
   vc.addEventListener('pointerup',up);vc.addEventListener('pointercancel',up);
 }
