@@ -1908,9 +1908,11 @@ function updateUndoUI(){var u=document.getElementById('undoBtn'),r=document.getE
 var PATS=[
   {k:'pat:stripesbc', name:'Голубые-коралл полосы', base:'#C6E7F0',
    bg:'repeating-linear-gradient(90deg,#C6E7F0 0 45px,#DD534D 45px 90px)',
+   icon:'linear-gradient(90deg,#C6E7F0 50%,#DD534D 50%)',
    draw:function(ctx,w,h){ctx.fillStyle='#C6E7F0';ctx.fillRect(0,0,w,h);ctx.fillStyle='#DD534D';var sw=45,x=sw;while(x<w){ctx.fillRect(x,0,sw,h);x+=sw*2;}}},
   {k:'pat:nbv4', name:'Полосы + винный низ (тетрадь)', base:'#C6E7F0',
-   bg:'repeating-linear-gradient(90deg,#C6E7F0 0 45px,#DD534D 45px 90px),linear-gradient(to bottom,transparent 0 84%,#5E101D 84%)',
+   bg:'linear-gradient(to bottom,transparent 0 84%,#5E101D 84%),repeating-linear-gradient(90deg,#C6E7F0 0 45px,#DD534D 45px 90px)',
+   icon:'linear-gradient(to bottom,transparent 0 50%,#5E101D 50%),linear-gradient(90deg,#C6E7F0 50%,#DD534D 50%)',
    draw:function(ctx,w,h){ctx.fillStyle='#C6E7F0';ctx.fillRect(0,0,w,h);ctx.fillStyle='#DD534D';var sw=45,x=sw;while(x<w){ctx.fillRect(x,0,sw,h);x+=sw*2;}ctx.fillStyle='#5E101D';ctx.fillRect(0,h*0.84,w,h*0.16);}}
 ];
 function patFind(k){k=k||'';if(k.indexOf('pat:')===0){for(var i=0;i<PATS.length;i++){if(PATS[i].k===k)return PATS[i];}}return null;}
@@ -1947,7 +1949,7 @@ function buildSwatches(){
   });
   /* фирменные фоны-паттерны inmark */
   PATS.forEach(function(p){
-    var d=document.createElement('div');d.className='sw';d.style.background=p.bg;d.title=p.name;
+    var d=document.createElement('div');d.className='sw';d.style.background=p.icon||p.bg;d.title=p.name;d.style.borderRadius='50%';
     d.style.boxShadow='0 0 0 2px var(--ui-acc) inset';
     if(s&&s.el.dataset.bg===p.k)d.className+=' on';
     d.addEventListener('click',function(){
