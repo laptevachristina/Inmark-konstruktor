@@ -154,6 +154,7 @@ em{font-style:italic}
 
 .sticker{position:absolute;touch-action:none;cursor:move}
 .sticker img{width:100%;height:100%;object-fit:contain;pointer-events:none;display:block;-webkit-user-drag:none;user-select:none}
+.sticker.free-xform img{object-fit:fill}
 .sticker .mv-handle,.sticker .mv-del,.sticker .tx-resize,.sticker .rot-handle,.sticker .spin-toggle,.sticker .layer-toggle,.sticker .copy-toggle{display:none}
 .sticker.sel{outline:2px dashed var(--sage);outline-offset:4px}
 .sticker.sel.detail .mv-handle,.sticker.sel.detail .mv-del,.sticker.sel.detail .tx-resize,.sticker.sel.detail .rot-handle,.sticker.sel.detail .spin-toggle,.sticker.sel.detail .layer-toggle,.sticker.sel.detail .copy-toggle{display:block}
@@ -1023,7 +1024,7 @@ if(addStickerBtn)addStickerBtn.addEventListener('click',function(e){
     m.addEventListener('click',function(ev){ev.stopPropagation();var b=ev.target.closest('button');if(!b)return;
       m.classList.remove('open');
       if(b.dataset.up){if(cur<0||!slides[cur])return;pickMode='sticker';filepick.accept='image/*,image/svg+xml';filepick.value='';filepick.click();}
-      else if(b.dataset.stk&&cur>=0&&slides[cur]){addSticker(b.dataset.stk);}
+      else if(b.dataset.stk&&cur>=0&&slides[cur]){addSticker(b.dataset.stk,b.getAttribute('data-im')==='card');}
     });
   }
   document.querySelectorAll('.dd.open').forEach(function(d){d.classList.remove('open');});
@@ -1203,7 +1204,7 @@ function autoCropDataURL(img){
     }catch(e){resolve({url:img.src,w:img.naturalWidth||200,h:img.naturalHeight||200});}
   });
 }
-function addSticker(dataURL){
+function addSticker(dataURL,free){
   if(cur<0||!slides[cur])return;
   var slideEl=slides[cur].el;
   var probe=new Image();
@@ -1212,7 +1213,7 @@ function addSticker(dataURL){
       var nw=res.w||200,nh=res.h||200;
       var targetW=Math.min(200,nw);var targetH=targetW*(nh/nw);
       var spot=findFreeSpot(slideEl,targetW,targetH);
-      var st=document.createElement('div');st.className='sticker';st.setAttribute('data-added','');st.dataset.rot='0';st.dataset.origSrc=res.url;
+      var st=document.createElement('div');st.className='sticker';st.setAttribute('data-added','');st.dataset.rot='0';if(free){st.classList.add('free-xform');st.dataset.free='1';}st.dataset.origSrc=res.url;
       st.style.left=spot.x+'px';st.style.top=spot.y+'px';st.style.width=targetW+'px';st.style.height=targetH+'px';st.style.zIndex='30';
       st.innerHTML='<img src="'+res.url+'" alt=""><span class="mv-handle"></span><span class="mv-del"></span><span class="tx-resize"></span><span class="rot-handle"></span><span class="spin-toggle"></span><span class="layer-toggle"></span><span class="copy-toggle"></span>';
       slideEl.appendChild(st);
@@ -1234,6 +1235,7 @@ function duplicateSticker(orig){
   st.dataset.layer=orig.dataset.layer||'above';
   if(orig.dataset.origSrc)st.dataset.origSrc=orig.dataset.origSrc;
   if(orig.dataset.cutThreshold)st.dataset.cutThreshold=orig.dataset.cutThreshold;
+  if(orig.dataset.free==='1'){st.dataset.free='1';st.classList.add('free-xform');}
   if(st.dataset.spin==='1')st.classList.add('spin-on');
   if(st.dataset.layer==='below')st.classList.add('layer-below');
   var srcImg=orig.querySelector('img');
@@ -1363,7 +1365,7 @@ function wireSticker(st){
       var ang=Math.atan2(b.y-a.y,b.x-a.x);var newDeg=baseRotDeg+(ang-startAngle)*180/Math.PI;
       st.dataset.rot=String(newDeg);st.style.transform='rotate('+newDeg+'deg)';
     }
-    else if(mode==='resize'&&moved){var ratio=Math.max(0.15,(baseW+((e.clientX-sx)/sc))/baseW);st.style.width=Math.max(30,baseW*ratio)+'px';st.style.height=Math.max(30,baseH*ratio)+'px';}
+    else if(mode==='resize'&&moved){if(st.dataset.free==='1'){st.style.width=Math.max(40,baseW+((e.clientX-sx)/sc))+'px';st.style.height=Math.max(40,baseH+((e.clientY-sy)/sc))+'px';}else{var ratio=Math.max(0.15,(baseW+((e.clientX-sx)/sc))/baseW);st.style.width=Math.max(30,baseW*ratio)+'px';st.style.height=Math.max(30,baseH*ratio)+'px';}}
     else if(mode==='move'&&moved){st.style.left=(bl+(e.clientX-sx)/sc)+'px';st.style.top=(bt+(e.clientY-sy)/sc)+'px';}
     e.preventDefault();
   });
