@@ -1904,9 +1904,11 @@ function updateUndoUI(){var u=document.getElementById('undoBtn'),r=document.getE
 /* фирменные фоны-паттерны inmark */
 var PATS=[
   {k:'pat:stripesbc', name:'Голубые-коралл полосы', base:'#C6E7F0',
-   bg:'repeating-linear-gradient(90deg,#C6E7F0 0 45px,#DD534D 45px 90px)'},
+   bg:'repeating-linear-gradient(90deg,#C6E7F0 0 45px,#DD534D 45px 90px)',
+   draw:function(ctx,w,h){ctx.fillStyle='#C6E7F0';ctx.fillRect(0,0,w,h);ctx.fillStyle='#DD534D';var sw=45,x=sw;while(x<w){ctx.fillRect(x,0,sw,h);x+=sw*2;}}},
   {k:'pat:nbv4', name:'Полосы + винный низ (тетрадь)', base:'#C6E7F0',
-   bg:'repeating-linear-gradient(90deg,#C6E7F0 0 45px,#DD534D 45px 90px),linear-gradient(to bottom,transparent 0 84%,#5E101D 84%)'}
+   bg:'repeating-linear-gradient(90deg,#C6E7F0 0 45px,#DD534D 45px 90px),linear-gradient(to bottom,transparent 0 84%,#5E101D 84%)',
+   draw:function(ctx,w,h){ctx.fillStyle='#C6E7F0';ctx.fillRect(0,0,w,h);ctx.fillStyle='#DD534D';var sw=45,x=sw;while(x<w){ctx.fillRect(x,0,sw,h);x+=sw*2;}ctx.fillStyle='#5E101D';ctx.fillRect(0,h*0.84,w,h*0.16);}}
 ];
 function patFind(k){k=k||'';if(k.indexOf('pat:')===0){for(var i=0;i<PATS.length;i++){if(PATS[i].k===k)return PATS[i];}}return null;}
 
@@ -3135,7 +3137,7 @@ function renderSlideCanvas(el,animState,videoFrameMap){
         var c=document.createElement('canvas');c.width=w*ES;c.height=h*ES;
         var ctx=c.getContext('2d');ctx.scale(ES,ES);
         var _onlyAbove=!!window._onlyStickersAbove;
-        if(!_onlyAbove){ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);}
+        var _pp=patFind(el.dataset.bg);if(!_onlyAbove){if(_pp&&_pp.draw){_pp.draw(ctx,w,h);}else{ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);}}
         if(!_onlyAbove)
         photos.forEach(function(p){
           ctx.save();ctx.globalAlpha=p.opacity;roundRectPath(ctx,p.x,p.y+p.dy,p.W,p.H,p.rad);ctx.clip();
