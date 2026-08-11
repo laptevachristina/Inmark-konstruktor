@@ -1039,7 +1039,6 @@ if(addVideoBtn)addVideoBtn.addEventListener('click',function(){if(cur<0||!slides
 function selectSticker(st){
   document.querySelectorAll('.sticker.sel').forEach(function(s){if(s!==st){s.classList.remove('sel');s.classList.remove('detail');}});
   st.classList.add('sel');
-  if(typeof openStickerFx==='function')openStickerFx(st);
 }
 var cutSliderTarget=null,cutSliderT=null;
 function openCutSlider(st,thr){ /* объединено с панелью стикера */
@@ -1375,8 +1374,8 @@ function wireSticker(st){
     if(Object.keys(pointers).length===0){if(mode&&mode!=='rotate'&&moved){updateFilm();pushHistory();}mode=null;
       /* 2-й тап по выделенному стикеру — показать/спрятать панель ручек */
       if(!moved&&st.classList.contains('sel')){
-        if(st.classList.contains('detail'))st.classList.remove('detail');
-        else st.classList.add('detail');
+        if(st.classList.contains('detail')){st.classList.remove('detail');if(typeof closeStickerFx==='function')closeStickerFx();}
+        else{st.classList.add('detail');if(typeof openStickerFx==='function')openStickerFx(st);}
       }
     }
   }
